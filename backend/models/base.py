@@ -3,9 +3,10 @@ Database Configuration
 SQLAlchemy engine, session, and base model setup.
 """
 
+from typing import Generator
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import sessionmaker, Session
 import os
 
 # Database file path (SQLite for development)
@@ -27,7 +28,7 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
 
-def get_db():
+def get_db() -> Generator[Session, None, None]:
     """
     Dependency that provides a database session.
     Use with FastAPI's Depends() or as a context manager.
@@ -48,7 +49,7 @@ def get_db():
         db.close()
 
 
-def init_db():
+def init_db() -> None:
     """
     Create all tables in the database.
     Call this on application startup.
@@ -56,7 +57,7 @@ def init_db():
     Base.metadata.create_all(bind=engine)
 
 
-def drop_db():
+def drop_db() -> None:
     """
     Drop all tables in the database.
     Use with caution - this deletes all data!

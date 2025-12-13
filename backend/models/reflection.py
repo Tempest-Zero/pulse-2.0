@@ -3,6 +3,7 @@ Reflection Model
 SQLAlchemy ORM model for end-of-day reflections.
 """
 
+from typing import Any
 from sqlalchemy import Column, Integer, String, Date, DateTime, Text, JSON
 from sqlalchemy.sql import func
 from .base import Base
@@ -33,10 +34,10 @@ class Reflection(Base):
     total_tasks = Column(Integer, default=0)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<Reflection(id={self.id}, date={self.date}, mood={self.mood_score})>"
 
-    def to_dict(self):
+    def to_dict(self) -> dict[str, Any]:
         """Convert model to dictionary (for API responses)."""
         return {
             "id": self.id,
@@ -50,7 +51,7 @@ class Reflection(Base):
         }
 
     @property
-    def completion_rate(self):
+    def completion_rate(self) -> float:
         """Calculate task completion rate as percentage."""
         if self.total_tasks == 0:
             return 0.0

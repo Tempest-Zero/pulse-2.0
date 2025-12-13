@@ -3,6 +3,7 @@ MoodEntry Model
 SQLAlchemy ORM model for mood tracking.
 """
 
+from typing import Any
 from sqlalchemy import Column, Integer, String, DateTime
 from sqlalchemy.sql import func
 from .base import Base
@@ -27,10 +28,10 @@ class MoodEntry(Base):
     mood = Column(String(20), nullable=False)
     timestamp = Column(DateTime(timezone=True), server_default=func.now(), index=True)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<MoodEntry(id={self.id}, mood='{self.mood}')>"
 
-    def to_dict(self):
+    def to_dict(self) -> dict[str, Any]:
         """Convert model to dictionary (for API responses)."""
         return {
             "id": self.id,

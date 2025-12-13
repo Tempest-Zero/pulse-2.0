@@ -1,0 +1,6 @@
+# Test Dependencies for PULSE Backend
+# Install with: pip install -r requirements-test.txt
+
+pytest>=9.0.0
+pytest-cov>=4.1.0
+httpx>=0.24.0

@@ -16,7 +16,7 @@ DATA_FILE = os.path.join(DATA_DIR, "mood.json")
 VALID_MOODS = {"calm", "energized", "focused", "tired"}
 
 
-def _ensure_data_file():
+def _ensure_data_file() -> None:
     """Ensure the data directory and file exist."""
     os.makedirs(DATA_DIR, exist_ok=True)
     if not os.path.exists(DATA_FILE):
@@ -35,7 +35,7 @@ def _read_data() -> dict:
         return json.load(f)
 
 
-def _write_data(data: dict):
+def _write_data(data: dict) -> None:
     """Write data to JSON file."""
     _ensure_data_file()
     with open(DATA_FILE, "w") as f:

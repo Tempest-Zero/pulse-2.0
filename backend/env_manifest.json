@@ -1,0 +1,77 @@
+{
+  "report_metadata": {
+    "title": "Environment Manifest - Pulse 2.0 Backend",
+    "generated_at": "2025-12-13T18:07:00+05:00",
+    "platform": "Windows"
+  },
+  "verified": {
+    "python_version": "3.13.1",
+    "pip_version": "25.3",
+    "venv_path": ".venv/",
+    "venv_python_exe": ".venv\\Scripts\\python.exe",
+    "dependency_sources": {
+      "main": "requirements.txt",
+      "test": "requirements-test.txt"
+    },
+    "pyproject_toml": false,
+    "env_folder_committed": false,
+    "gitignore_exists": true
+  },
+  "setup_guide": {
+    "title": "Recreate Environment (Windows PowerShell)",
+    "steps": [
+      {
+        "step": 1,
+        "command": "cd c:\\Users\\OGDCL\\Downloads\\Pulse 2.0\\backend"
+      },
+      {
+        "step": 2,
+        "command": "python -m venv .venv"
+      },
+      {
+        "step": 3,
+        "command": ".\\.venv\\Scripts\\Activate.ps1"
+      },
+      {
+        "step": 4,
+        "command": "python -m pip install -U pip"
+      },
+      {
+        "step": 5,
+        "command": "python -m pip install -r requirements.txt"
+      },
+      {
+        "step": 6,
+        "command": "python -m pip install -r requirements-test.txt"
+      },
+      {
+        "step": 7,
+        "command": "python -m pytest -q --disable-warnings"
+      }
+    ]
+  },
+  "verification_commands": {
+    "check_python_version": "python -c \"import sys; print(sys.version)\"",
+    "check_pip_version": "python -m pip --version",
+    "check_venv_python": "where python",
+    "run_tests": "python -m pytest -q --disable-warnings",
+    "freeze_deps": "python -m pip freeze > requirements-lock.txt"
+  },
+  "repo_hygiene": {
+    "gitignore_entries": [
+      ".venv/",
+      "env/",
+      "__pycache__/",
+      "*.pyc",
+      ".pytest_cache/",
+      "htmlcov/",
+      ".coverage",
+      "test*.db",
+      "*.sqlite3",
+      ".env",
+      "*.log",
+      "dist/",
+      "build/"
+    ]
+  }
+}

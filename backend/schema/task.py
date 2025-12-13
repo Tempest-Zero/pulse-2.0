@@ -3,16 +3,22 @@ Task Schemas
 Pydantic models for task API validation.
 """
 
-from pydantic import BaseModel, Field
-from typing import Optional
+from pydantic import BaseModel, Field, field_validator
+from typing import Optional, Union
 from datetime import datetime
 
 
 class TaskCreate(BaseModel):
     """Schema for creating a new task."""
     title: str = Field(..., min_length=1, max_length=255)
-    duration: float = Field(default=1.0, ge=0.25, le=8.0)
+    duration: Union[int, float] = Field(default=1.0, ge=0.25, le=8.0)
     difficulty: str = Field(default="medium", pattern="^(easy|medium|hard)$")
+    
+    @field_validator('duration')
+    @classmethod
+    def convert_duration_to_float(cls, v):
+        """Convert duration to float (accepts both int and float)."""
+        return float(v)
 
 
 class TaskUpdate(BaseModel):

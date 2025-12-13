@@ -3,6 +3,7 @@ ScheduleBlock Model
 SQLAlchemy ORM model for schedule blocks.
 """
 
+from typing import Any
 from sqlalchemy import Column, Integer, String, Float, DateTime
 from sqlalchemy.sql import func
 from .base import Base
@@ -31,10 +32,10 @@ class ScheduleBlock(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<ScheduleBlock(id={self.id}, title='{self.title}', start={self.start})>"
 
-    def to_dict(self):
+    def to_dict(self) -> dict[str, Any]:
         """Convert model to dictionary (for API responses)."""
         return {
             "id": self.id,
@@ -47,6 +48,6 @@ class ScheduleBlock(Base):
         }
 
     @property
-    def end(self):
+    def end(self) -> float:
         """Calculate end hour."""
         return self.start + self.duration
