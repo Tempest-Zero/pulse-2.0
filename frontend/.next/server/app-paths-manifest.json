@@ -1,1 +1,10 @@
-{}
+{
+  "/_global-error/page": "app/_global-error/page.js",
+  "/_not-found/page": "app/_not-found/page.js",
+  "/checkin/page": "app/checkin/page.js",
+  "/dashboard/page": "app/dashboard/page.js",
+  "/insights/page": "app/insights/page.js",
+  "/page": "app/page.js",
+  "/schedule/page": "app/schedule/page.js",
+  "/settings/page": "app/settings/page.js"
+}
