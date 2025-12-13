@@ -26,12 +26,15 @@ import { Calendar as CalendarComponent } from "@/components/ui/calendar"
 import { format } from "date-fns"
 import { Calendar, Clock, Sparkles, Plus, Trash2, Zap, CalendarIcon, MessageSquare, CheckCircle2 } from "lucide-react"
 import { useState } from "react"
+import { useTasks, useCreateTask, useDeleteTask, useToggleTask } from "@/hooks"
 
 export default function SchedulePage() {
-  const [tasks, setTasks] = useState([
-    { id: 1, name: "Finish math assignment", duration: 60, done: false },
-    { id: 2, name: "Study for biology test", duration: 90, done: false },
-  ])
+  // React Query hooks for tasks
+  const { data: tasks = [], isLoading: isLoadingTasks } = useTasks()
+  const createTaskMutation = useCreateTask()
+  const deleteTaskMutation = useDeleteTask()
+  const toggleTaskMutation = useToggleTask()
+
   const [newTask, setNewTask] = useState("")
   const [duration, setDuration] = useState(60)
   const [schedule, setSchedule] = useState([])
@@ -50,23 +53,28 @@ export default function SchedulePage() {
 
   const addTask = () => {
     if (taskForm.name.trim() && taskForm.estimatedTime) {
-      setTasks([
-        ...tasks,
-        {
-          id: Date.now(),
-          name: taskForm.name,
-          duration: Number.parseInt(taskForm.estimatedTime),
-          priority: taskForm.priority,
-          difficulty: taskForm.difficulty,
-          deadline: taskForm.deadline,
-          done: false,
-        },
-      ])
+      createTaskMutation.mutate({
+        title: taskForm.name,
+        durationMinutes: Number.parseInt(taskForm.estimatedTime),
+        priority: taskForm.priority || 'medium',
+        difficulty: taskForm.difficulty || 'medium',
+      }, {
+        onSuccess: () => {
+          setTaskForm({
+            name: "",
+            priority: "",
+            difficulty: "",
+            estimatedTime: "",
+            deadline: null,
+          })
+          setIsAddTaskOpen(false)
+        }
+      })
     }
   }
 
   const deleteTask = (id) => {
-    setTasks(tasks.filter((task) => task.id !== id))
+    deleteTaskMutation.mutate(id)
   }
 
   const generateSchedule = () => {
@@ -152,11 +160,10 @@ export default function SchedulePage() {
                   tasks.map((task) => (
                     <div
                       key={task.id}
-                      className={`flex items-center justify-between p-3 rounded-lg border transition-all ${
-                        task.done
-                          ? "bg-accent/10 border-accent/30"
-                          : "bg-muted/50 border-border/50"
-                      }`}
+                      className={`flex items-center justify-between p-3 rounded-lg border transition-all ${task.done
+                        ? "bg-accent/10 border-accent/30"
+                        : "bg-muted/50 border-border/50"
+                        }`}
                     >
                       <div className="flex items-center gap-3 flex-1">
                         {task.done ? (
@@ -180,12 +187,11 @@ export default function SchedulePage() {
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => {
-                                setTasks(tasks.map((t) => (t.id === task.id ? { ...t, done: true } : t)))
-                              }}
+                              onClick={() => toggleTaskMutation.mutate(task.id)}
+                              disabled={toggleTaskMutation.isPending}
                               className="h-8"
                             >
-                              Done
+                              {toggleTaskMutation.isPending ? "..." : "Done"}
                             </Button>
                             <Button
                               size="sm"
@@ -444,11 +450,10 @@ export default function SchedulePage() {
                   <button
                     key={option.value}
                     onClick={() => setReflectionReason(option.value)}
-                    className={`w-full text-left p-3 rounded-lg border transition-all ${
-                      reflectionReason === option.value
-                        ? "border-accent bg-accent/10"
-                        : "border-border/50 hover:border-accent/50"
-                    }`}
+                    className={`w-full text-left p-3 rounded-lg border transition-all ${reflectionReason === option.value
+                      ? "border-accent bg-accent/10"
+                      : "border-border/50 hover:border-accent/50"
+                      }`}
                   >
                     {option.label}
                   </button>

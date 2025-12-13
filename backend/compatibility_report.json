@@ -1,0 +1,386 @@
+{
+    "report": {
+        "title": "Frontend-Backend Compatibility Analysis (Final)",
+        "generated_at": "2025-12-14T01:18:00+05:00",
+        "verdict": "INTEGRATION_READY",
+        "summary": "Backend data transformation, API client layer, and state management are complete. Only component wiring remains."
+    },
+    "progress_overview": {
+        "total_phases": 5,
+        "completed_phases": 4,
+        "remaining_phases": 1,
+        "completion_percentage": 80,
+        "work_completed_hours": "~6",
+        "work_remaining_hours": "4-6"
+    },
+    "completed_phases": [
+        {
+            "phase": 2,
+            "name": "Data Transformation (Backend)",
+            "status": "COMPLETE",
+            "summary": "Backend schemas updated for frontend compatibility",
+            "changes": [
+                "Added priority field to Task model (low/medium/high)",
+                "Added durationMinutes property with automatic conversion",
+                "Added name/done aliases to Task model and API responses",
+                "Expanded VALID_MOODS to include all frontend values",
+                "Updated tasks router for duration conversion"
+            ],
+            "files_modified": [
+                "backend/models/task.py",
+                "backend/models/mood.py",
+                "backend/schema/task.py",
+                "backend/schema/mood.py",
+                "backend/routers/tasks_router.py"
+            ]
+        },
+        {
+            "phase": 3,
+            "name": "API Client Layer (Frontend)",
+            "status": "COMPLETE",
+            "summary": "Full API client with typed modules for all endpoints",
+            "stages_completed": 8,
+            "test_results": {
+                "passed": 6,
+                "total": 6,
+                "pass_rate": "100%",
+                "endpoints_tested": [
+                    "Root",
+                    "Health",
+                    "Tasks",
+                    "Schedule",
+                    "Mood",
+                    "Reflections"
+                ]
+            },
+            "files_created": [
+                "frontend/.env.local",
+                "frontend/lib/api/config.ts",
+                "frontend/lib/api/client.ts",
+                "frontend/lib/api/tasks.ts",
+                "frontend/lib/api/schedule.ts",
+                "frontend/lib/api/mood.ts",
+                "frontend/lib/api/reflections.ts",
+                "frontend/lib/api/index.ts",
+                "frontend/scripts/test-all-apis.ts",
+                "frontend/scripts/test-tasks-api.ts"
+            ],
+            "npm_scripts_added": [
+                "test:api",
+                "test:api:tasks"
+            ]
+        },
+        {
+            "phase": 4,
+            "name": "State Management (React Query)",
+            "status": "COMPLETE",
+            "summary": "TanStack Query hooks for all API domains with cache management",
+            "hooks_created": {
+                "tasks": {
+                    "count": 6,
+                    "hooks": [
+                        "useTasks",
+                        "useTask",
+                        "useCreateTask",
+                        "useUpdateTask",
+                        "useDeleteTask",
+                        "useToggleTask"
+                    ]
+                },
+                "schedule": {
+                    "count": 7,
+                    "hooks": [
+                        "useSchedule",
+                        "useScheduleBlock",
+                        "useScheduleRange",
+                        "useCreateScheduleBlock",
+                        "useUpdateScheduleBlock",
+                        "useDeleteScheduleBlock",
+                        "useClearSchedule"
+                    ]
+                },
+                "mood": {
+                    "count": 7,
+                    "hooks": [
+                        "useCurrentMood",
+                        "useMoodHistory",
+                        "useMoodCounts",
+                        "useMostCommonMood",
+                        "useSetMood",
+                        "useDeleteMoodEntry",
+                        "useClearMoodHistory"
+                    ]
+                },
+                "reflections": {
+                    "count": 9,
+                    "hooks": [
+                        "useReflections",
+                        "useReflection",
+                        "useTodayReflection",
+                        "useReflectionByDate",
+                        "useMoodAverage",
+                        "useCommonDistractions",
+                        "useCreateReflection",
+                        "useUpdateReflection",
+                        "useDeleteReflection"
+                    ]
+                },
+                "total": 29
+            },
+            "files_created": [
+                "frontend/lib/providers/query-provider.tsx",
+                "frontend/hooks/use-tasks.ts",
+                "frontend/hooks/use-schedule.ts",
+                "frontend/hooks/use-mood.ts",
+                "frontend/hooks/use-reflections.ts",
+                "frontend/hooks/index.ts"
+            ],
+            "files_modified": [
+                "frontend/app/layout.tsx"
+            ],
+            "package_added": "@tanstack/react-query"
+        }
+    ],
+    "remaining_phase": {
+        "phase": 5,
+        "name": "Component Integration",
+        "status": "NOT_STARTED",
+        "priority": "P0",
+        "effort_hours": "4-6",
+        "description": "Wire React Query hooks into existing page components",
+        "components_to_update": [
+            {
+                "file": "app/dashboard/page.jsx",
+                "current_state": "Uses useState with hardcoded mock data",
+                "changes_needed": [
+                    "Replace useState tasks with useTasks() hook",
+                    "Replace mood state with useCurrentMood() and useSetMood()",
+                    "Wire task creation dialog with useCreateTask()",
+                    "Wire task completion with useToggleTask()",
+                    "Wire reflections with useCreateReflection()",
+                    "Add loading/error states"
+                ]
+            },
+            {
+                "file": "app/schedule/page.jsx",
+                "current_state": "Uses useState with fake setTimeout schedule generation",
+                "changes_needed": [
+                    "Replace useState tasks with useTasks() hook",
+                    "Wire schedule blocks with useSchedule()",
+                    "Replace fake generation with real API calls",
+                    "Wire task CRUD with mutation hooks",
+                    "Add loading/error states"
+                ]
+            },
+            {
+                "file": "app/insights/page.jsx",
+                "current_state": "Unknown - needs review",
+                "changes_needed": [
+                    "Wire analytics with useReflections(), useMoodAverage(), useCommonDistractions()"
+                ]
+            }
+        ]
+    },
+    "current_architecture": {
+        "backend": {
+            "url": "https://pulse-20-production.up.railway.app",
+            "local_url": "http://localhost:8000",
+            "status": "DEPLOYED",
+            "framework": "FastAPI + SQLAlchemy + SQLite",
+            "endpoints": {
+                "tasks": "GET/POST /tasks, GET/PATCH/DELETE /tasks/{id}, POST /tasks/{id}/toggle",
+                "schedule": "GET/POST/DELETE /schedule, GET/PATCH/DELETE /schedule/{id}, GET /schedule/range",
+                "mood": "GET /mood/current, POST /mood, GET /mood/history, GET /mood/analytics/*",
+                "reflections": "GET/POST /reflections, GET /reflections/today, GET /reflections/analytics/*"
+            }
+        },
+        "frontend": {
+            "framework": "Next.js 16 + React 19 + TypeScript",
+            "api_client": "COMPLETE - lib/api/*",
+            "state_management": "COMPLETE - React Query with 29 hooks",
+            "provider": "QueryProvider wrapping app in layout.tsx",
+            "components": "UI mockups - NOT YET CONNECTED to API"
+        }
+    },
+    "data_schema_alignment": {
+        "tasks": {
+            "backend_fields": [
+                "id",
+                "title",
+                "name",
+                "duration",
+                "durationMinutes",
+                "completed",
+                "done",
+                "priority",
+                "difficulty",
+                "scheduledAt",
+                "createdAt",
+                "updatedAt"
+            ],
+            "frontend_hooks_types": [
+                "Task",
+                "TaskCreate",
+                "TaskUpdate"
+            ],
+            "alignment": "100%",
+            "notes": "Backend provides both title/name and completed/done aliases"
+        },
+        "schedule": {
+            "backend_fields": [
+                "id",
+                "title",
+                "start",
+                "duration",
+                "type",
+                "createdAt",
+                "updatedAt"
+            ],
+            "frontend_hooks_types": [
+                "ScheduleBlock",
+                "ScheduleBlockCreate",
+                "ScheduleBlockUpdate"
+            ],
+            "alignment": "100%"
+        },
+        "mood": {
+            "backend_values": [
+                "calm",
+                "energized",
+                "focused",
+                "tired",
+                "good",
+                "neutral",
+                "low",
+                "exhausted"
+            ],
+            "frontend_type": "MoodValue (union type)",
+            "alignment": "100%"
+        },
+        "reflections": {
+            "backend_fields": [
+                "id",
+                "date",
+                "moodScore",
+                "distractions",
+                "note",
+                "completedTasks",
+                "totalTasks",
+                "createdAt"
+            ],
+            "frontend_hooks_types": [
+                "Reflection",
+                "ReflectionCreate",
+                "ReflectionUpdate"
+            ],
+            "alignment": "100%"
+        }
+    },
+    "resolved_issues": [
+        {
+            "id": "NO_API_CLIENT",
+            "original_status": "CRITICAL",
+            "current_status": "RESOLVED",
+            "solution": "Created lib/api/* with typed modules for all endpoints"
+        },
+        {
+            "id": "NO_STATE_MANAGEMENT",
+            "original_status": "CRITICAL",
+            "current_status": "RESOLVED",
+            "solution": "Implemented React Query with 29 hooks and QueryProvider"
+        },
+        {
+            "id": "DURATION_UNITS_DIFFER",
+            "original_status": "CRITICAL",
+            "current_status": "RESOLVED",
+            "solution": "Backend now provides durationMinutes field"
+        },
+        {
+            "id": "MOOD_VALUES_DIFFER",
+            "original_status": "CRITICAL",
+            "current_status": "RESOLVED",
+            "solution": "Backend accepts all frontend mood values"
+        },
+        {
+            "id": "FIELD_NAMING_MISMATCH",
+            "original_status": "CRITICAL",
+            "current_status": "RESOLVED",
+            "solution": "Backend provides name/done aliases in responses"
+        },
+        {
+            "id": "MISSING_PRIORITY_FIELD",
+            "original_status": "MODERATE",
+            "current_status": "RESOLVED",
+            "solution": "Added priority field to Task model"
+        }
+    ],
+    "remaining_issues": [
+        {
+            "id": "COMPONENTS_NOT_WIRED",
+            "status": "OPEN",
+            "severity": "P0",
+            "description": "React components still use useState with mock data",
+            "effort": "4-6 hours",
+            "phase": 5
+        },
+        {
+            "id": "NO_AUTH",
+            "status": "OPEN",
+            "severity": "P2",
+            "description": "No authentication in frontend or backend",
+            "effort": "6-10 hours",
+            "phase": "Future"
+        },
+        {
+            "id": "FAKE_SCHEDULE_GENERATION",
+            "status": "OPEN",
+            "severity": "P1",
+            "description": "Schedule page uses fake setTimeout instead of real AI",
+            "effort": "3-4 hours",
+            "phase": 5
+        }
+    ],
+    "verification_commands": {
+        "api_test": "cd frontend && npm run test:api",
+        "typescript_check": "cd frontend && npx tsc --noEmit --skipLibCheck",
+        "dev_server": "cd frontend && npm run dev",
+        "backend_health": "curl https://pulse-20-production.up.railway.app/health"
+    },
+    "usage_examples": {
+        "fetch_tasks": "const { data: tasks, isLoading, error } = useTasks();",
+        "create_task": "const createTask = useCreateTask(); createTask.mutate({ title: 'New', duration: 1.0 });",
+        "toggle_task": "const toggleTask = useToggleTask(); toggleTask.mutate(taskId);",
+        "set_mood": "const setMood = useSetMood(); setMood.mutate('energized');",
+        "fetch_schedule": "const { data: blocks } = useScheduleRange(9, 17);"
+    },
+    "file_tree": {
+        "frontend/lib/api/": [
+            "config.ts",
+            "client.ts",
+            "tasks.ts",
+            "schedule.ts",
+            "mood.ts",
+            "reflections.ts",
+            "index.ts"
+        ],
+        "frontend/lib/providers/": [
+            "query-provider.tsx"
+        ],
+        "frontend/hooks/": [
+            "use-tasks.ts",
+            "use-schedule.ts",
+            "use-mood.ts",
+            "use-reflections.ts",
+            "index.ts"
+        ],
+        "frontend/scripts/": [
+            "test-all-apis.ts",
+            "test-tasks-api.ts"
+        ]
+    },
+    "next_action": {
+        "phase": 5,
+        "task": "Wire hooks into app/dashboard/page.jsx and app/schedule/page.jsx",
+        "command_to_proceed": "Ask: 'proceed with phase 5 component integration'"
+    }
+}

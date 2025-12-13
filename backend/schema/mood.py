@@ -8,8 +8,8 @@ from typing import Optional
 from datetime import datetime
 
 
-# Valid mood values
-VALID_MOODS = {"calm", "energized", "focused", "tired"}
+# Valid mood values (expanded for frontend compatibility)
+VALID_MOODS = {"calm", "energized", "focused", "tired", "good", "neutral", "low", "exhausted"}
 
 
 class MoodCreate(BaseModel):

@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useTasks, useCreateTask, useToggleTask, useCurrentMood, useSetMood } from "@/hooks"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Navigation } from "@/components/navigation"
@@ -44,14 +45,7 @@ import {
 export default function DashboardPage() {
   const [isInSession, setIsInSession] = useState(false)
   const [sessionTime, setSessionTime] = useState(25 * 60)
-  const [mood, setMood] = useState(null)
   const [isAddTaskOpen, setIsAddTaskOpen] = useState(false)
-  const [tasks, setTasks] = useState([
-    { id: 1, task: "Finish project proposal", done: true, time: "45 min" },
-    { id: 2, task: "Study for exam", done: true, time: "1h 20min" },
-    { id: 3, task: "Review pull requests", done: false, time: "30 min" },
-    { id: 4, task: "Gym session", done: false, time: "1h" },
-  ])
   const [taskForm, setTaskForm] = useState({
     name: "",
     priority: "",
@@ -62,6 +56,13 @@ export default function DashboardPage() {
   const [isReflectionOpen, setIsReflectionOpen] = useState(false)
   const [selectedTaskId, setSelectedTaskId] = useState(null)
   const [reflectionReason, setReflectionReason] = useState("")
+
+  // React Query hooks
+  const { data: tasks = [], isLoading: isLoadingTasks } = useTasks()
+  const createTaskMutation = useCreateTask()
+  const toggleTaskMutation = useToggleTask()
+  const { data: currentMood } = useCurrentMood()
+  const setMoodMutation = useSetMood()
 
   const moods = [
     { emoji: "🔥", label: "On fire", value: "energized" },
@@ -98,19 +99,19 @@ export default function DashboardPage() {
             {moods.map((m) => (
               <button
                 key={m.value}
-                onClick={() => setMood(m.value)}
-                className={`flex flex-col items-center gap-2 p-4 rounded-2xl border-2 transition-all ${
-                  mood === m.value
-                    ? "border-accent bg-accent/10 scale-105"
-                    : "border-border/50 hover:border-accent/50 hover:scale-105"
-                }`}
+                onClick={() => setMoodMutation.mutate(m.value)}
+                disabled={setMoodMutation.isPending}
+                className={`flex flex-col items-center gap-2 p-4 rounded-2xl border-2 transition-all ${currentMood?.mood === m.value
+                  ? "border-accent bg-accent/10 scale-105"
+                  : "border-border/50 hover:border-accent/50 hover:scale-105"
+                  } ${setMoodMutation.isPending ? "opacity-50 cursor-wait" : ""}`}
               >
                 <span className="text-3xl">{m.emoji}</span>
                 <span className="text-sm font-medium">{m.label}</span>
               </button>
             ))}
           </div>
-          {mood && (
+          {currentMood?.mood && (
             <p className="mt-4 text-sm text-muted-foreground">
               Got it! I'll adjust your schedule to match your energy ✨
             </p>
@@ -167,61 +168,77 @@ export default function DashboardPage() {
                 <CheckCircle2 className="w-5 h-5 text-accent" />
                 Today's missions
               </h2>
-              <div className="space-y-3">
-                {tasks.map((item, i) => (
-                  <div
-                    key={i}
-                    className={`flex items-center justify-between p-4 rounded-xl border transition-all ${
-                      item.done
+              {isLoadingTasks ? (
+                <div className="space-y-3">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="animate-pulse flex items-center justify-between p-4 rounded-xl border bg-muted/30">
+                      <div className="flex items-center gap-3">
+                        <div className="w-5 h-5 rounded-full bg-muted" />
+                        <div className="h-4 w-40 bg-muted rounded" />
+                      </div>
+                      <div className="h-4 w-16 bg-muted rounded" />
+                    </div>
+                  ))}
+                </div>
+              ) : tasks.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <p>No tasks yet! Add your first task to get started.</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {tasks.map((item) => (
+                    <div
+                      key={item.id}
+                      className={`flex items-center justify-between p-4 rounded-xl border transition-all ${item.done
                         ? "bg-accent/10 border-accent/30"
                         : "bg-muted/30 border-border/50 hover:border-accent/50"
-                    }`}
-                  >
-                    <div className="flex items-center gap-3 flex-1">
-                      {item.done ? (
-                        <CheckCircle2 className="w-5 h-5 text-accent" />
-                      ) : (
-                        <div className="w-5 h-5 rounded-full border-2 border-muted-foreground" />
-                      )}
-                      <span className={item.done ? "line-through text-muted-foreground" : "font-medium"}>
-                        {item.task}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Clock className="w-4 h-4" />
-                        {item.time}
+                        }`}
+                    >
+                      <div className="flex items-center gap-3 flex-1">
+                        {item.done ? (
+                          <CheckCircle2 className="w-5 h-5 text-accent" />
+                        ) : (
+                          <div className="w-5 h-5 rounded-full border-2 border-muted-foreground" />
+                        )}
+                        <span className={item.done ? "line-through text-muted-foreground" : "font-medium"}>
+                          {item.name}
+                        </span>
                       </div>
-                      {!item.done && (
-                        <div className="flex items-center gap-2 ml-4">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              setTasks(tasks.map((t) => (t.id === item.id ? { ...t, done: true } : t)))
-                            }}
-                            className="h-8"
-                          >
-                            Done
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              setSelectedTaskId(item.id)
-                              setIsReflectionOpen(true)
-                            }}
-                            className="h-8"
-                          >
-                            <MessageSquare className="w-4 h-4 mr-1" />
-                            Reflection
-                          </Button>
+                      <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <Clock className="w-4 h-4" />
+                          {item.duration} min
                         </div>
-                      )}
+                        {!item.done && (
+                          <div className="flex items-center gap-2 ml-4">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => toggleTaskMutation.mutate(item.id)}
+                              disabled={toggleTaskMutation.isPending}
+                              className="h-8"
+                            >
+                              {toggleTaskMutation.isPending ? "..." : "Done"}
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setSelectedTaskId(item.id)
+                                setIsReflectionOpen(true)
+                              }}
+                              className="h-8"
+                            >
+                              <MessageSquare className="w-4 h-4 mr-1" />
+                              Reflection
+                            </Button>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
               <Button
                 variant="outline"
                 className="w-full mt-4 bg-transparent"
@@ -333,41 +350,29 @@ export default function DashboardPage() {
                   <Button
                     onClick={() => {
                       if (taskForm.name.trim() && taskForm.estimatedTime) {
-                        const timeStr =
-                          Number.parseInt(taskForm.estimatedTime) >= 60
-                            ? `${Math.floor(Number.parseInt(taskForm.estimatedTime) / 60)}h ${
-                                Number.parseInt(taskForm.estimatedTime) % 60
-                                  ? `${Number.parseInt(taskForm.estimatedTime) % 60} min`
-                                  : ""
-                              }`.trim()
-                            : `${taskForm.estimatedTime} min`
-
-                        setTasks([
-                          ...tasks,
-                          {
-                            id: Date.now(),
-                            task: taskForm.name,
-                            done: false,
-                            time: timeStr,
-                            priority: taskForm.priority,
-                            difficulty: taskForm.difficulty,
-                            deadline: taskForm.deadline,
-                          },
-                        ])
-                        setTaskForm({
-                          name: "",
-                          priority: "",
-                          difficulty: "",
-                          estimatedTime: "",
-                          deadline: null,
+                        createTaskMutation.mutate({
+                          title: taskForm.name,
+                          durationMinutes: Number.parseInt(taskForm.estimatedTime),
+                          priority: taskForm.priority || 'medium',
+                          difficulty: taskForm.difficulty || 'medium',
+                        }, {
+                          onSuccess: () => {
+                            setTaskForm({
+                              name: "",
+                              priority: "",
+                              difficulty: "",
+                              estimatedTime: "",
+                              deadline: null,
+                            })
+                            setIsAddTaskOpen(false)
+                          }
                         })
-                        setIsAddTaskOpen(false)
                       }
                     }}
                     className="bg-accent text-accent-foreground hover:bg-accent/90"
-                    disabled={!taskForm.name.trim() || !taskForm.estimatedTime}
+                    disabled={!taskForm.name.trim() || !taskForm.estimatedTime || createTaskMutation.isPending}
                   >
-                    Add Task
+                    {createTaskMutation.isPending ? "Creating..." : "Add Task"}
                   </Button>
                 </DialogFooter>
               </DialogContent>
@@ -396,11 +401,10 @@ export default function DashboardPage() {
                       <button
                         key={option.value}
                         onClick={() => setReflectionReason(option.value)}
-                        className={`w-full text-left p-3 rounded-lg border transition-all ${
-                          reflectionReason === option.value
-                            ? "border-accent bg-accent/10"
-                            : "border-border/50 hover:border-accent/50"
-                        }`}
+                        className={`w-full text-left p-3 rounded-lg border transition-all ${reflectionReason === option.value
+                          ? "border-accent bg-accent/10"
+                          : "border-border/50 hover:border-accent/50"
+                          }`}
                       >
                         {option.label}
                       </button>

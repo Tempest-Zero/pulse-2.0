@@ -8,8 +8,10 @@ from sqlalchemy.sql import func
 from .base import Base
 
 
-# Valid mood values (matching frontend)
-VALID_MOODS = {"calm", "energized", "focused", "tired"}
+# Valid mood values (expanded for frontend compatibility)
+# Original: calm, energized, focused, tired
+# Frontend uses: energized, good, neutral, low, exhausted
+VALID_MOODS = {"calm", "energized", "focused", "tired", "good", "neutral", "low", "exhausted"}
 
 
 class MoodEntry(Base):

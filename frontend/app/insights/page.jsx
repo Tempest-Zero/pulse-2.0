@@ -3,8 +3,20 @@
 import { Card } from "@/components/ui/card"
 import { Navigation } from "@/components/navigation"
 import { TrendingUp, TrendingDown, Clock, Target, Brain, Zap, Shield, Heart, Coffee } from "lucide-react"
+import { useTasks, useMoodHistory, useReflections } from "@/hooks"
 
 export default function InsightsPage() {
+  // Real data from API
+  const { data: tasks = [] } = useTasks()
+  const { data: moodHistory = [] } = useMoodHistory(7)
+  const { data: reflections = [] } = useReflections(7)
+
+  // Calculate real stats
+  const completedTasks = tasks.filter(t => t.done).length
+  const totalTasks = tasks.length
+  const completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0
+
+  // Mock week data for now (would need date-based API for real data)
   const weekData = [
     { day: "Mon", focus: 85, mood: 4 },
     { day: "Tue", focus: 72, mood: 3 },
@@ -110,13 +122,13 @@ export default function InsightsPage() {
           </Card>
           <Card className="p-6 text-center">
             <Target className="w-10 h-10 mx-auto mb-3 text-chart-2" />
-            <div className="text-3xl font-bold mb-1">34/40</div>
+            <div className="text-3xl font-bold mb-1">{completedTasks}/{totalTasks}</div>
             <div className="text-sm text-muted-foreground">Tasks completed</div>
           </Card>
           <Card className="p-6 text-center">
             <Zap className="w-10 h-10 mx-auto mb-3 text-chart-3" />
-            <div className="text-3xl font-bold mb-1">85%</div>
-            <div className="text-sm text-muted-foreground">Avg productivity</div>
+            <div className="text-3xl font-bold mb-1">{completionRate}%</div>
+            <div className="text-sm text-muted-foreground">Completion rate</div>
           </Card>
           <Card className="p-6 text-center">
             <Coffee className="w-10 h-10 mx-auto mb-3 text-chart-5" />

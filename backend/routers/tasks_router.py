@@ -41,10 +41,14 @@ def create_task(
     db: Session = Depends(get_db)
 ):
     """Create a new task."""
+    # Get duration in hours (handles conversion from minutes if provided)
+    duration_hours = task_data.get_duration_hours()
+    
     task = Task(
         title=task_data.title,
-        duration=task_data.duration,
-        difficulty=task_data.difficulty
+        duration=duration_hours,
+        difficulty=task_data.difficulty,
+        priority=task_data.priority
     )
     db.add(task)
     db.commit()
