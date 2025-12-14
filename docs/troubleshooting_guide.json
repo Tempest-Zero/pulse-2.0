@@ -1,0 +1,326 @@
+{
+    "title": "Frontend-Backend Connection Troubleshooting Guide",
+    "version": "1.0",
+    "created": "2025-12-15",
+    "issue_description": "Frontend shows 'Failed to load recommendation' / 'Failed to fetch' error despite backend being healthy",
+    "deployment_info": {
+        "backend": {
+            "url": "https://devoted-reprieve.up.railway.app",
+            "platform": "Railway",
+            "framework": "FastAPI",
+            "database": "Supabase PostgreSQL"
+        },
+        "frontend": {
+            "url": "https://pulse-20-production-314b.up.railway.app",
+            "platform": "Railway",
+            "framework": "Next.js"
+        }
+    },
+    "diagnostic_urls": [
+        {
+            "url": "https://devoted-reprieve.up.railway.app/health",
+            "purpose": "Check backend health and database connection",
+            "expected_response": {
+                "status": "healthy",
+                "api": "ok",
+                "database": "connected",
+                "error": null
+            }
+        },
+        {
+            "url": "https://devoted-reprieve.up.railway.app/ai/recommendation",
+            "purpose": "Test AI recommendation endpoint directly",
+            "expected_response": "JSON with recommendation_id, action_type, explanation, etc."
+        },
+        {
+            "url": "https://devoted-reprieve.up.railway.app/docs",
+            "purpose": "Swagger UI for interactive API testing"
+        }
+    ],
+    "troubleshooting_steps": [
+        {
+            "step": 1,
+            "title": "Verify Backend AI Endpoint",
+            "actions": [
+                "Open browser to: https://devoted-reprieve.up.railway.app/ai/recommendation",
+                "Check if JSON response is returned",
+                "If error 500: Check Railway backend logs for crash details"
+            ],
+            "success_criteria": "Returns JSON with recommendation data",
+            "failure_actions": [
+                "Check Railway logs",
+                "Verify database connection",
+                "Check AI module imports"
+            ]
+        },
+        {
+            "step": 2,
+            "title": "Verify CORS Configuration",
+            "actions": [
+                "Go to Railway Dashboard → Backend Service → Variables",
+                "Ensure CORS_ORIGINS contains: https://pulse-20-production-314b.up.railway.app",
+                "NO trailing slash on the URL",
+                "Redeploy backend after changing"
+            ],
+            "relevant_files": [
+                {
+                    "path": "backend/main.py",
+                    "lines": "25-41",
+                    "description": "CORS middleware configuration"
+                }
+            ],
+            "success_criteria": "CORS_ORIGINS includes frontend URL without trailing slash"
+        },
+        {
+            "step": 3,
+            "title": "Verify Frontend Environment Variable",
+            "actions": [
+                "Open frontend in browser",
+                "Open DevTools (F12) → Console",
+                "This variable is baked at build time, not runtime"
+            ],
+            "relevant_files": [
+                {
+                    "path": "frontend/.env.production",
+                    "content": "NEXT_PUBLIC_API_URL=https://devoted-reprieve.up.railway.app"
+                },
+                {
+                    "path": "frontend/lib/api/config.js",
+                    "lines": "4",
+                    "description": "API_BASE_URL uses NEXT_PUBLIC_API_URL or fallback"
+                }
+            ],
+            "success_criteria": "Console shows Railway backend URL, not localhost"
+        },
+        {
+            "step": 4,
+            "title": "Force Frontend Rebuild",
+            "description": "Next.js bakes environment variables at build time. If cache is stale, old values persist.",
+            "actions": [
+                "Option A: Clear build cache in Railway Dashboard",
+                "Option B: Push empty commit to trigger rebuild"
+            ],
+            "commands": [
+                "git commit --allow-empty -m 'chore: force rebuild'",
+                "git push origin claude/ai-integration-frontend-aZVkP"
+            ]
+        },
+        {
+            "step": 5,
+            "title": "Check Network Tab",
+            "actions": [
+                "Open frontend in browser",
+                "Open DevTools (F12) → Network tab",
+                "Click 'Retry' on failed recommendation",
+                "Look for request to /ai/recommendation"
+            ],
+            "what_to_check": [
+                {
+                    "issue": "Request to localhost:8000",
+                    "cause": "Frontend not rebuilt with production env",
+                    "fix": "Force rebuild (Step 4)"
+                },
+                {
+                    "issue": "CORS error in console",
+                    "cause": "Backend not allowing frontend origin",
+                    "fix": "Update CORS_ORIGINS (Step 2)"
+                },
+                {
+                    "issue": "500 error from backend",
+                    "cause": "Backend endpoint crashing",
+                    "fix": "Check Railway backend logs"
+                },
+                {
+                    "issue": "No request visible",
+                    "cause": "JavaScript error before fetch",
+                    "fix": "Check Console for errors"
+                }
+            ]
+        },
+        {
+            "step": 6,
+            "title": "Manual CORS Test",
+            "description": "Run this in browser console on frontend page",
+            "javascript_code": "fetch('https://devoted-reprieve.up.railway.app/ai/recommendation').then(r => r.json()).then(console.log).catch(console.error);",
+            "expected_outcomes": [
+                {
+                    "result": "JSON data logged",
+                    "meaning": "CORS is working, issue is in frontend code"
+                },
+                {
+                    "result": "CORS error",
+                    "meaning": "Backend not allowing this origin"
+                },
+                {
+                    "result": "TypeError: Failed to fetch",
+                    "meaning": "Network issue or CORS preflight failed"
+                }
+            ]
+        }
+    ],
+    "common_issues": [
+        {
+            "symptom": "Failed to fetch with CORS error",
+            "cause": "Frontend origin not in backend CORS_ORIGINS",
+            "fix": {
+                "railway_variable": "CORS_ORIGINS=https://pulse-20-production-314b.up.railway.app",
+                "redeploy": true
+            }
+        },
+        {
+            "symptom": "Request going to localhost:8000",
+            "cause": "Frontend was built without NEXT_PUBLIC_API_URL",
+            "fix": {
+                "file": "frontend/.env.production",
+                "content": "NEXT_PUBLIC_API_URL=https://devoted-reprieve.up.railway.app",
+                "redeploy": true,
+                "clear_cache": true
+            }
+        },
+        {
+            "symptom": "500 Internal Server Error from /ai/recommendation",
+            "cause": "Backend AI endpoint crashing",
+            "fix": {
+                "action": "Check Railway backend logs",
+                "common_causes": [
+                    "Database connection failed",
+                    "Missing import in AI module",
+                    "Query error on empty tables"
+                ]
+            }
+        },
+        {
+            "symptom": "Backend healthy but database disconnected",
+            "cause": "Supabase connection issue",
+            "fix": {
+                "check": "DATABASE_URL in Railway variables",
+                "use": "Session pooler URL (port 6543)",
+                "format": "postgresql://postgres.[project]:[password]@aws-0-us-east-1.pooler.supabase.com:6543/postgres"
+            }
+        }
+    ],
+    "key_files": {
+        "backend": [
+            {
+                "path": "backend/main.py",
+                "purpose": "FastAPI app entry, CORS config, health endpoints",
+                "key_sections": [
+                    "CORS middleware (lines 62-77)",
+                    "Health check (lines 97-111)"
+                ]
+            },
+            {
+                "path": "backend/models/base.py",
+                "purpose": "Database connection configuration",
+                "key_sections": [
+                    "prepare_database_url()",
+                    "engine creation",
+                    "init_db()"
+                ]
+            },
+            {
+                "path": "backend/routers/ai_router.py",
+                "purpose": "AI recommendation endpoints",
+                "key_sections": [
+                    "GET /ai/recommendation",
+                    "POST /ai/feedback"
+                ]
+            },
+            {
+                "path": "backend/nixpacks.toml",
+                "purpose": "Railway build configuration",
+                "key_sections": [
+                    "Virtual environment setup",
+                    "Start command with venv path"
+                ]
+            },
+            {
+                "path": "backend/railway.json",
+                "purpose": "Railway deployment config",
+                "key_sections": [
+                    "startCommand must use /app/venv/bin/uvicorn"
+                ]
+            }
+        ],
+        "frontend": [
+            {
+                "path": "frontend/.env.production",
+                "purpose": "Production environment variables (baked at build time)",
+                "key_variables": [
+                    "NEXT_PUBLIC_API_URL"
+                ]
+            },
+            {
+                "path": "frontend/lib/api/config.js",
+                "purpose": "API client configuration",
+                "key_sections": [
+                    "API_BASE_URL definition",
+                    "apiRequest helper"
+                ]
+            }
+        ]
+    },
+    "railway_settings": {
+        "backend": {
+            "required_variables": [
+                {
+                    "name": "DATABASE_URL",
+                    "value": "postgresql://postgres.[project]:[password]@aws-0-us-east-1.pooler.supabase.com:6543/postgres",
+                    "notes": "Use session pooler (port 6543), not direct connection (port 5432)"
+                },
+                {
+                    "name": "CORS_ORIGINS",
+                    "value": "https://pulse-20-production-314b.up.railway.app",
+                    "notes": "No trailing slash, exact match required"
+                }
+            ],
+            "custom_start_command": "/app/venv/bin/uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}"
+        },
+        "frontend": {
+            "required_variables": [
+                {
+                    "name": "NEXT_PUBLIC_API_URL",
+                    "value": "https://devoted-reprieve.up.railway.app",
+                    "notes": "Set in .env.production file OR Railway variables"
+                }
+            ]
+        }
+    },
+    "verification_checklist": [
+        {
+            "id": 1,
+            "check": "Backend /health returns healthy",
+            "status": "pending"
+        },
+        {
+            "id": 2,
+            "check": "Backend /ai/recommendation returns JSON",
+            "status": "pending"
+        },
+        {
+            "id": 3,
+            "check": "CORS_ORIGINS includes frontend URL",
+            "status": "pending"
+        },
+        {
+            "id": 4,
+            "check": "Frontend rebuilt after .env.production added",
+            "status": "pending"
+        },
+        {
+            "id": 5,
+            "check": "Frontend fetch reaches backend (not localhost)",
+            "status": "pending"
+        },
+        {
+            "id": 6,
+            "check": "No CORS errors in browser console",
+            "status": "pending"
+        },
+        {
+            "id": 7,
+            "check": "Recommendations load on frontend",
+            "status": "pending"
+        }
+    ]
+}
