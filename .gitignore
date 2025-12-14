@@ -50,5 +50,5 @@ backend/data/*.json
 backend/data/*.db
 
 # Misc
-*.log
+*.loga
 .vercel

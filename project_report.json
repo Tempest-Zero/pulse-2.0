@@ -1,0 +1,364 @@
+{
+    "project": {
+        "name": "PULSE 2.0",
+        "tagline": "AI-Powered Productivity Coach",
+        "description": "A full-stack productivity application that helps users manage tasks, track mood, and optimize their daily schedule using AI-driven insights.",
+        "repository": "c:\\Users\\OGDCL\\Documents\\pulse-2.0",
+        "generated_at": "2025-12-14T01:43:00+05:00"
+    },
+    "architecture": {
+        "type": "Full-Stack Web Application",
+        "pattern": "Client-Server with REST API",
+        "deployment": {
+            "backend": "Railway (https://pulse-20-production.up.railway.app)",
+            "frontend": "Local development (http://localhost:3000)",
+            "database": "SQLite (via Railway)"
+        }
+    },
+    "technology_stack": {
+        "frontend": {
+            "framework": "Next.js 16",
+            "language": "TypeScript/JavaScript (JSX)",
+            "ui_library": "React 19",
+            "styling": "Tailwind CSS 4",
+            "component_library": "Radix UI (shadcn/ui)",
+            "state_management": "TanStack React Query",
+            "icons": "Lucide React",
+            "forms": "React Hook Form + Zod",
+            "charts": "Recharts"
+        },
+        "backend": {
+            "framework": "FastAPI",
+            "language": "Python 3.x",
+            "database": "SQLite",
+            "orm": "SQLAlchemy",
+            "validation": "Pydantic",
+            "server": "Uvicorn"
+        }
+    },
+    "features": {
+        "implemented": [
+            {
+                "name": "Task Management",
+                "description": "Full CRUD operations for tasks with priority, difficulty, and duration tracking",
+                "endpoints": [
+                    "GET /tasks",
+                    "POST /tasks",
+                    "PATCH /tasks/{id}",
+                    "DELETE /tasks/{id}",
+                    "POST /tasks/{id}/toggle"
+                ]
+            },
+            {
+                "name": "Mood Tracking",
+                "description": "Track current mood with 8 mood values, view history and analytics",
+                "endpoints": [
+                    "GET /mood/current",
+                    "POST /mood",
+                    "GET /mood/history",
+                    "GET /mood/analytics/*"
+                ]
+            },
+            {
+                "name": "Schedule Management",
+                "description": "Create and manage schedule blocks with time ranges",
+                "endpoints": [
+                    "GET /schedule",
+                    "POST /schedule",
+                    "PATCH /schedule/{id}",
+                    "DELETE /schedule/{id}",
+                    "GET /schedule/range"
+                ]
+            },
+            {
+                "name": "Daily Reflections",
+                "description": "End-of-day reflections with mood scores, notes, and distraction tracking",
+                "endpoints": [
+                    "GET /reflections",
+                    "POST /reflections",
+                    "GET /reflections/today",
+                    "GET /reflections/analytics/*"
+                ]
+            },
+            {
+                "name": "Focus Timer",
+                "description": "Pomodoro-style focus timer with session tracking (frontend only)",
+                "status": "UI implemented, no backend persistence"
+            },
+            {
+                "name": "Insights Dashboard",
+                "description": "Analytics showing task completion rates, mood patterns, and productivity trends",
+                "status": "Partially uses real data, some mock data"
+            }
+        ],
+        "not_implemented": [
+            {
+                "name": "Authentication",
+                "description": "User login/signup, session management",
+                "effort": "6-10 hours"
+            },
+            {
+                "name": "AI Schedule Generation",
+                "description": "Real AI-powered schedule optimization (currently simulated with setTimeout)",
+                "effort": "4-6 hours"
+            },
+            {
+                "name": "App Blocking",
+                "description": "Block distracting apps during focus sessions (requires native app)",
+                "effort": "N/A - requires native development"
+            },
+            {
+                "name": "Focus Timer Backend",
+                "description": "Persist focus sessions to database for analytics",
+                "effort": "2-3 hours"
+            }
+        ]
+    },
+    "api_endpoints": {
+        "base_url": "https://pulse-20-production.up.railway.app",
+        "endpoints": {
+            "root": {
+                "GET /": "API info",
+                "GET /health": "Health check"
+            },
+            "tasks": {
+                "GET /tasks": "List all tasks",
+                "POST /tasks": "Create task",
+                "GET /tasks/{id}": "Get task by ID",
+                "PATCH /tasks/{id}": "Update task",
+                "DELETE /tasks/{id}": "Delete task",
+                "POST /tasks/{id}/toggle": "Toggle completion"
+            },
+            "schedule": {
+                "GET /schedule": "List schedule blocks",
+                "POST /schedule": "Create block",
+                "GET /schedule/{id}": "Get block by ID",
+                "PATCH /schedule/{id}": "Update block",
+                "DELETE /schedule/{id}": "Delete block",
+                "GET /schedule/range": "Get blocks in time range",
+                "DELETE /schedule": "Clear all blocks"
+            },
+            "mood": {
+                "GET /mood/current": "Get current mood",
+                "POST /mood": "Set mood",
+                "GET /mood/history": "Get mood history",
+                "GET /mood/{id}": "Get mood entry",
+                "DELETE /mood/{id}": "Delete mood entry",
+                "GET /mood/analytics/counts": "Get mood counts",
+                "GET /mood/analytics/most-common": "Get most common mood",
+                "DELETE /mood/history/clear": "Clear history"
+            },
+            "reflections": {
+                "GET /reflections": "List reflections",
+                "POST /reflections": "Create reflection",
+                "GET /reflections/today": "Get today's reflection",
+                "GET /reflections/{id}": "Get by ID",
+                "GET /reflections/date/{date}": "Get by date",
+                "PATCH /reflections/{id}": "Update reflection",
+                "DELETE /reflections/{id}": "Delete reflection",
+                "GET /reflections/analytics/mood-average": "Mood average",
+                "GET /reflections/analytics/common-distractions": "Common distractions"
+            }
+        }
+    },
+    "data_models": {
+        "Task": {
+            "fields": {
+                "id": "number (auto-generated)",
+                "title": "string (1-255 chars)",
+                "name": "string (alias for title)",
+                "duration": "float (hours, 0.25-8.0)",
+                "durationMinutes": "int (minutes, computed)",
+                "difficulty": "enum: easy | medium | hard",
+                "priority": "enum: low | medium | high",
+                "completed": "boolean",
+                "done": "boolean (alias for completed)",
+                "scheduledAt": "float | null (hour of day)",
+                "createdAt": "datetime",
+                "updatedAt": "datetime | null"
+            }
+        },
+        "ScheduleBlock": {
+            "fields": {
+                "id": "number",
+                "title": "string",
+                "start": "float (hour of day)",
+                "duration": "float (hours)",
+                "blockType": "enum: fixed | focus | break | task",
+                "createdAt": "datetime",
+                "updatedAt": "datetime | null"
+            }
+        },
+        "MoodEntry": {
+            "fields": {
+                "id": "number",
+                "mood": "enum: calm | energized | focused | tired | good | neutral | low | exhausted",
+                "timestamp": "datetime"
+            }
+        },
+        "Reflection": {
+            "fields": {
+                "id": "number",
+                "date": "string (YYYY-MM-DD)",
+                "moodScore": "int (1-10)",
+                "distractions": "string[]",
+                "note": "string | null",
+                "completedTasks": "int",
+                "totalTasks": "int",
+                "createdAt": "datetime"
+            }
+        }
+    },
+    "file_structure": {
+        "backend": {
+            "main.py": "FastAPI app entry point with CORS and routers",
+            "models/": {
+                "base.py": "SQLAlchemy base",
+                "task.py": "Task model with priority and duration properties",
+                "mood.py": "MoodEntry model with VALID_MOODS",
+                "schedule.py": "ScheduleBlock model",
+                "reflection.py": "Reflection model"
+            },
+            "schema/": {
+                "task.py": "Pydantic TaskCreate, TaskUpdate, TaskResponse",
+                "mood.py": "Pydantic MoodCreate, MoodResponse",
+                "schedule.py": "Pydantic ScheduleBlockCreate/Update/Response",
+                "reflection.py": "Pydantic ReflectionCreate/Update/Response"
+            },
+            "routers/": {
+                "tasks_router.py": "Tasks API endpoints",
+                "mood_router.py": "Mood API endpoints",
+                "schedule_router.py": "Schedule API endpoints",
+                "reflections_router.py": "Reflections API endpoints"
+            },
+            "data/": "SQLite database storage"
+        },
+        "frontend": {
+            "app/": {
+                "layout.tsx": "Root layout with QueryProvider",
+                "page.jsx": "Landing page",
+                "dashboard/page.jsx": "Dashboard with tasks + mood (integrated)",
+                "schedule/page.jsx": "Schedule management (integrated)",
+                "insights/page.jsx": "Analytics page (integrated)",
+                "checkin/page.jsx": "Check-in page",
+                "settings/page.jsx": "Settings page"
+            },
+            "lib/api/": {
+                "config.ts": "API configuration with Railway URL",
+                "client.ts": "Base HTTP client with ApiError",
+                "tasks.ts": "Tasks API module",
+                "schedule.ts": "Schedule API module",
+                "mood.ts": "Mood API module",
+                "reflections.ts": "Reflections API module",
+                "index.ts": "Barrel exports"
+            },
+            "lib/providers/": {
+                "query-provider.tsx": "React Query provider"
+            },
+            "hooks/": {
+                "use-tasks.ts": "6 hooks for task operations",
+                "use-schedule.ts": "7 hooks for schedule operations",
+                "use-mood.ts": "7 hooks for mood operations",
+                "use-reflections.ts": "9 hooks for reflection operations",
+                "index.ts": "Barrel exports"
+            },
+            "components/": "UI components (shadcn/ui)",
+            "scripts/": {
+                "test-all-apis.ts": "Integration test suite",
+                "test-tasks-api.ts": "Tasks API test"
+            }
+        }
+    },
+    "integration_status": {
+        "phases_completed": [
+            {
+                "phase": 2,
+                "name": "Backend Data Transformation",
+                "description": "Updated backend schemas for frontend compatibility",
+                "changes": [
+                    "Added priority field",
+                    "Added durationMinutes",
+                    "Expanded mood values",
+                    "Added name/done aliases"
+                ]
+            },
+            {
+                "phase": 3,
+                "name": "API Client Layer",
+                "description": "Created typed API client modules",
+                "files_created": 10,
+                "test_result": "6/6 endpoints passed"
+            },
+            {
+                "phase": 4,
+                "name": "State Management",
+                "description": "Implemented React Query hooks",
+                "hooks_created": 29,
+                "package_added": "@tanstack/react-query"
+            },
+            {
+                "phase": 5,
+                "name": "Component Integration",
+                "description": "Wired React components to API",
+                "pages_integrated": [
+                    "dashboard",
+                    "schedule",
+                    "insights"
+                ]
+            }
+        ],
+        "integration_percentage": 100,
+        "working_features": [
+            "Create/Read/Update/Delete tasks",
+            "Toggle task completion",
+            "Set and track mood",
+            "View task completion stats",
+            "Data persists across page refreshes"
+        ]
+    },
+    "commands": {
+        "run_frontend": "cd frontend && npm run dev",
+        "run_backend": "cd backend && python -m uvicorn main:app --reload",
+        "test_api": "cd frontend && npm run test:api",
+        "test_tasks": "cd frontend && npm run test:api:tasks",
+        "install_dependencies": "cd frontend && npm install"
+    },
+    "environment_variables": {
+        "frontend/.env.local": {
+            "NEXT_PUBLIC_API_URL": "https://pulse-20-production.up.railway.app",
+            "NEXT_PUBLIC_API_TIMEOUT": "10000"
+        }
+    },
+    "future_roadmap": [
+        {
+            "priority": "P1",
+            "feature": "User Authentication",
+            "description": "Add login/signup with JWT tokens",
+            "effort_hours": "6-10"
+        },
+        {
+            "priority": "P1",
+            "feature": "Real AI Schedule Generation",
+            "description": "Integrate AI model for smart scheduling",
+            "effort_hours": "4-6"
+        },
+        {
+            "priority": "P2",
+            "feature": "Toast Notifications",
+            "description": "Add success/error feedback",
+            "effort_hours": "0.5"
+        },
+        {
+            "priority": "P2",
+            "feature": "Optimistic Updates",
+            "description": "Instant UI response before API confirms",
+            "effort_hours": "1"
+        },
+        {
+            "priority": "P3",
+            "feature": "Offline Support",
+            "description": "Work offline with sync when online",
+            "effort_hours": "2-3"
+        }
+    ]
+}
