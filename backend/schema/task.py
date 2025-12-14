@@ -3,7 +3,7 @@ Task Schemas
 Pydantic models for task API validation.
 """
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, ConfigDict
 from typing import Optional, Union
 from datetime import datetime
 
@@ -32,6 +32,8 @@ class TaskUpdate(BaseModel):
 
 class TaskResponse(BaseModel):
     """Schema for task responses."""
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
     id: int
     title: str
     duration: float
@@ -40,7 +42,3 @@ class TaskResponse(BaseModel):
     scheduled_at: Optional[float] = Field(None, alias="scheduledAt")
     created_at: Optional[datetime] = Field(None, alias="createdAt")
     updated_at: Optional[datetime] = Field(None, alias="updatedAt")
-
-    class Config:
-        from_attributes = True
-        populate_by_name = True

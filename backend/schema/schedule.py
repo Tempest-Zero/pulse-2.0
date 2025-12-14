@@ -3,7 +3,7 @@ Schedule Block Schemas
 Pydantic models for schedule block API validation.
 """
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from typing import Optional
 from datetime import datetime
 
@@ -26,6 +26,8 @@ class ScheduleBlockUpdate(BaseModel):
 
 class ScheduleBlockResponse(BaseModel):
     """Schema for schedule block responses."""
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
     id: int
     title: str
     start: float
@@ -33,7 +35,3 @@ class ScheduleBlockResponse(BaseModel):
     block_type: str = Field(alias="type")
     created_at: Optional[datetime] = Field(None, alias="createdAt")
     updated_at: Optional[datetime] = Field(None, alias="updatedAt")
-
-    class Config:
-        from_attributes = True
-        populate_by_name = True

@@ -3,7 +3,7 @@ Mood Schemas
 Pydantic models for mood API validation.
 """
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, ConfigDict
 from typing import Optional
 from datetime import datetime
 
@@ -26,9 +26,8 @@ class MoodCreate(BaseModel):
 
 class MoodResponse(BaseModel):
     """Schema for mood entry responses."""
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     mood: str
     timestamp: Optional[datetime] = None
-
-    class Config:
-        from_attributes = True

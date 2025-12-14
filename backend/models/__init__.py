@@ -6,6 +6,8 @@ from .task import Task
 from .schedule import ScheduleBlock
 from .reflection import Reflection
 from .mood import MoodEntry
+from .user import User
+from .recommendation_log import RecommendationLog
 
 __all__ = [
     "Base",
@@ -18,4 +20,8 @@ __all__ = [
     "ScheduleBlock",
     "Reflection",
     "MoodEntry",
+    "User",
+    "RecommendationLog",
 ]
+
+
