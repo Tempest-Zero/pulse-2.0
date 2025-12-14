@@ -26,12 +26,26 @@ from .action_masker import ActionMasker
 from .task_selector import TaskSelector
 from .hybrid_recommender import HybridRecommender, RecommendationResult
 
-# DQN Components (Browser Extension)
-from .dqn_agent import DQNAgent, DQNNetwork
-from .feature_encoder import FeatureEncoder, feature_encoder
-from .replay_buffer import ReplayBuffer, PrioritizedReplayBuffer
+# DQN Components (Browser Extension) - Optional, requires PyTorch
+DQN_AVAILABLE = False
+try:
+    from .dqn_agent import DQNAgent, DQNNetwork
+    from .feature_encoder import FeatureEncoder, feature_encoder
+    from .replay_buffer import ReplayBuffer, PrioritizedReplayBuffer
+    DQN_AVAILABLE = True
+except ImportError as e:
+    # PyTorch not installed - DQN features disabled
+    print(f"[AI] DQN components not available (PyTorch not installed): {e}")
+    DQNAgent = None
+    DQNNetwork = None
+    FeatureEncoder = None
+    feature_encoder = None
+    ReplayBuffer = None
+    PrioritizedReplayBuffer = None
 
 __all__ = [
+    # DQN Availability Flag
+    "DQN_AVAILABLE",
     # Actions
     "ActionType",
     "ActionMetadata",
