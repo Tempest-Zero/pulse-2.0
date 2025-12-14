@@ -72,7 +72,15 @@ def init_db() -> None:
     Create all tables in the database.
     Call this on application startup.
     """
+    # Log which tables will be created
+    table_names = list(Base.metadata.tables.keys())
+    print(f"[DB] Registered models: {table_names}")
+
+    if not table_names:
+        print("[DB] WARNING: No models registered! Check imports in main.py")
+
     Base.metadata.create_all(bind=engine)
+    print(f"[DB] init_db() complete - {len(table_names)} tables should now exist")
 
 
 def drop_db() -> None:

@@ -7,7 +7,9 @@ import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from models.base import init_db
+# Import from models package (NOT models.base) to ensure all models are loaded
+# before init_db() is called - otherwise Base.metadata won't know about any tables!
+from models import init_db
 from routers import tasks_router, schedule_router, reflections_router, mood_router, ai_router, extension_router
 
 # Initialize database tables
