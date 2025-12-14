@@ -79,6 +79,11 @@
                 "Open DevTools (F12) → Console",
                 "This variable is baked at build time, not runtime"
             ],
+            "protocol_security_check": {
+                "check": "Protocol Security",
+                "action": "Ensure NEXT_PUBLIC_API_URL starts with 'https://', NOT 'http://'",
+                "reason": "Browsers block http requests from https pages (Mixed Content Error)"
+            },
             "relevant_files": [
                 {
                     "path": "frontend/.env.production",
@@ -90,7 +95,7 @@
                     "description": "API_BASE_URL uses NEXT_PUBLIC_API_URL or fallback"
                 }
             ],
-            "success_criteria": "Console shows Railway backend URL, not localhost"
+            "success_criteria": "Console shows Railway backend URL with HTTPS, not localhost or HTTP"
         },
         {
             "step": 4,
@@ -196,6 +201,15 @@
                 "check": "DATABASE_URL in Railway variables",
                 "use": "Session pooler URL (port 6543)",
                 "format": "postgresql://postgres.[project]:[password]@aws-0-us-east-1.pooler.supabase.com:6543/postgres"
+            }
+        },
+        {
+            "symptom": "Mixed Content Error - request blocked",
+            "cause": "Frontend (HTTPS) trying to call backend with HTTP URL",
+            "fix": {
+                "check": "NEXT_PUBLIC_API_URL must start with https://",
+                "file": "frontend/.env.production",
+                "ensure": "NEXT_PUBLIC_API_URL=https://devoted-reprieve.up.railway.app (NOT http://)"
             }
         }
     ],
