@@ -42,15 +42,6 @@ except ImportError as e:
     feature_encoder = None
     ReplayBuffer = None
     PrioritizedReplayBuffer = None
-    DQN_AVAILABLE = True
-except ImportError:
-    DQNAgent = None
-    DQNNetwork = None
-    FeatureEncoder = None
-    feature_encoder = None
-    ReplayBuffer = None
-    PrioritizedReplayBuffer = None
-    DQN_AVAILABLE = False
 
 __all__ = [
     # Actions
