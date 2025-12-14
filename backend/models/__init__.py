@@ -1,7 +1,7 @@
 # Models Module
 # SQLAlchemy ORM models for PULSE backend
 
-from .base import Base, engine, SessionLocal, get_db, init_db, drop_db
+from .base import Base, engine, SessionLocal, get_db, init_db, drop_db, test_connection
 from .task import Task
 from .schedule import ScheduleBlock
 from .reflection import Reflection
@@ -22,6 +22,7 @@ __all__ = [
     "get_db",
     "init_db",
     "drop_db",
+    "test_connection",
     "Task",
     "ScheduleBlock",
     "Reflection",

@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 # Import from models package (NOT models.base) to ensure all models are loaded
 # before init_db() is called - otherwise Base.metadata won't know about any tables!
-from models import init_db
+from models import init_db, test_connection
 from routers import tasks_router, schedule_router, reflections_router, mood_router, ai_router, extension_router
 
 # Initialize database tables
@@ -61,5 +61,13 @@ def root():
 
 @app.get("/health")
 def health_check():
-    """Health check endpoint."""
-    return {"status": "healthy"}
+    """
+    Health check endpoint for Railway deployment.
+    Verifies both API and database connectivity.
+    """
+    db_connected = test_connection()
+    return {
+        "status": "healthy" if db_connected else "degraded",
+        "api": "ok",
+        "database": "connected" if db_connected else "disconnected"
+    }
