@@ -9,7 +9,7 @@ const SYNC_CONFIG = {
   BACKOFF_MULTIPLIER: 2,
   MAX_ATTEMPTS_PER_SESSION: 10,
   SYNC_INTERVAL: 60 * 60 * 1000,       // 1 hour
-  API_ENDPOINT: 'http://localhost:8000/api/v1/extension'
+  API_ENDPOINT: 'https://back-end-304.up.railway.app/api/v1/extension'
 };
 
 class SyncScheduler {
