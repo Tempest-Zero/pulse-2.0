@@ -150,9 +150,38 @@ def init_db() -> None:
         Base.metadata.create_all(bind=engine)
         print(f"[DB] init_db() complete - {len(table_names)} tables created/verified")
 
+        # Create default user if it doesn't exist (required for AI features)
+        _ensure_default_user()
+
     except Exception as e:
         print(f"[DB] ERROR during init_db(): {e}")
         raise
+
+
+def _ensure_default_user() -> None:
+    """
+    Ensure default user exists for single-user mode.
+    Required for AI recommendation logging.
+    """
+    from models.user import User
+    
+    db = SessionLocal()
+    try:
+        # Check if default user (id=1) exists
+        default_user = db.query(User).filter(User.id == 1).first()
+        if not default_user:
+            # Create default user
+            default_user = User(id=1, username="default")
+            db.add(default_user)
+            db.commit()
+            print("[DB] Created default user (id=1) for AI features")
+        else:
+            print("[DB] Default user already exists")
+    except Exception as e:
+        db.rollback()
+        print(f"[DB] Warning: Could not create default user: {e}")
+    finally:
+        db.close()
 
 
 def drop_db() -> None:
