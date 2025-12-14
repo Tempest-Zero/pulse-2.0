@@ -20,6 +20,7 @@ def prepare_database_url(url: str) -> str:
     Prepare DATABASE_URL for SQLAlchemy compatibility.
     - Converts postgres:// to postgresql:// (SQLAlchemy 2.0+ requirement)
     - Ensures sslmode=require for Supabase connections
+    - Safely handles passwords with special characters that break urlparse
     """
     if not url:
         return url
@@ -28,21 +29,30 @@ def prepare_database_url(url: str) -> str:
     if url.startswith("postgres://"):
         url = url.replace("postgres://", "postgresql://", 1)
 
-    # Parse URL to check/add SSL mode for Supabase
-    parsed = urlparse(url)
+    try:
+        # Parse URL to check/add SSL mode for Supabase
+        parsed = urlparse(url)
 
-    # Detect Supabase URLs (contain .supabase.co)
-    is_supabase = parsed.hostname and "supabase" in parsed.hostname
+        # Detect Supabase URLs (contain .supabase.co)
+        is_supabase = parsed.hostname and "supabase" in parsed.hostname
 
-    # Parse existing query params
-    query_params = parse_qs(parsed.query) if parsed.query else {}
+        # Parse existing query params
+        query_params = parse_qs(parsed.query) if parsed.query else {}
 
-    # Add sslmode=require for Supabase if not already set
-    if is_supabase and "sslmode" not in query_params:
-        query_params["sslmode"] = ["require"]
-        new_query = urlencode(query_params, doseq=True)
-        parsed = parsed._replace(query=new_query)
-        url = urlunparse(parsed)
+        # Add sslmode=require for Supabase if not already set
+        if is_supabase and "sslmode" not in query_params:
+            query_params["sslmode"] = ["require"]
+            new_query = urlencode(query_params, doseq=True)
+            parsed = parsed._replace(query=new_query)
+            url = urlunparse(parsed)
+
+    except ValueError:
+        # urlparse failed (likely due to special chars in password or IPv6 format).
+        # Since we only strictly need parsing for Supabase auto-config,
+        # and Supabase URLs rarely cause this error, we can safely
+        # return the URL (with the fixed scheme) and continue.
+        print("[WARN] Could not parse DATABASE_URL to check options. Using raw URL.")
+        pass
 
     return url
 
