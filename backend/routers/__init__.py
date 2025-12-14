@@ -6,6 +6,7 @@ from .schedule_router import router as schedule_router
 from .reflections_router import router as reflections_router
 from .mood_router import router as mood_router
 from .ai_router import router as ai_router
+from .extension_router import router as extension_router
 
 __all__ = [
     "tasks_router",
@@ -13,5 +14,5 @@ __all__ = [
     "reflections_router",
     "mood_router",
     "ai_router",
+    "extension_router",
 ]
-

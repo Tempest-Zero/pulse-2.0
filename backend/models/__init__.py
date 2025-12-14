@@ -8,6 +8,12 @@ from .reflection import Reflection
 from .mood import MoodEntry
 from .user import User
 from .recommendation_log import RecommendationLog
+from .extension_metadata import (
+    BrowsingSession,
+    UserExtensionConsent,
+    ConsentVersion,
+    ExtensionAnalytics
+)
 
 __all__ = [
     "Base",
@@ -22,6 +28,8 @@ __all__ = [
     "MoodEntry",
     "User",
     "RecommendationLog",
+    "BrowsingSession",
+    "UserExtensionConsent",
+    "ConsentVersion",
+    "ExtensionAnalytics",
 ]
-
-

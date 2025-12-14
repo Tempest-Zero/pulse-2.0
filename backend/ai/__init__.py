@@ -1,8 +1,9 @@
 """
 PULSE AI Module
-Q-Learning based task recommendation system.
+Hybrid AI system with Q-Learning and Deep Q-Network agents.
 """
 
+# Q-Learning Components (Original)
 from .actions import ActionType, ActionMetadata, ACTION_TYPES, get_all_actions, get_action_metadata
 from .state import (
     UserState,
@@ -24,6 +25,11 @@ from .rule_engine import RuleEngine
 from .action_masker import ActionMasker
 from .task_selector import TaskSelector
 from .hybrid_recommender import HybridRecommender, RecommendationResult
+
+# DQN Components (Browser Extension)
+from .dqn_agent import DQNAgent, DQNNetwork
+from .feature_encoder import FeatureEncoder, feature_encoder
+from .replay_buffer import ReplayBuffer, PrioritizedReplayBuffer
 
 __all__ = [
     # Actions
@@ -64,6 +70,11 @@ __all__ = [
     # Hybrid Recommender
     "HybridRecommender",
     "RecommendationResult",
+    # DQN Components
+    "DQNAgent",
+    "DQNNetwork",
+    "FeatureEncoder",
+    "feature_encoder",
+    "ReplayBuffer",
+    "PrioritizedReplayBuffer",
 ]
-
-

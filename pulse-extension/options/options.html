@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pulse Extension Settings</title>
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <header class="header">
+      <h1>Pulse Extension Settings</h1>
+      <p class="subtitle">Manage your privacy, consent, and preferences</p>
+    </header>
+
+    <!-- Navigation -->
+    <nav class="nav-tabs">
+      <button class="tab-btn active" data-tab="consent">Consent & Privacy</button>
+      <button class="tab-btn" data-tab="preferences">Preferences</button>
+      <button class="tab-btn" data-tab="data">Your Data</button>
+      <button class="tab-btn" data-tab="categories">Categories</button>
+    </nav>
+
+    <!-- Consent & Privacy Tab -->
+    <div id="consentTab" class="tab-content active">
+      <section class="card">
+        <h2>Consent Status</h2>
+
+        <div id="consentStatus" class="status-box">
+          <div class="status-indicator">
+            <span class="status-dot" id="consentDot"></span>
+            <span id="consentStatusText">Checking consent...</span>
+          </div>
+        </div>
+
+        <div id="consentDetails" class="consent-details">
+          <h3>What We Collect</h3>
+          <ul class="data-list">
+            <li>Website categories you visit (not full URLs)</li>
+            <li>Time spent on different categories (work, leisure, social)</li>
+            <li>Tab switching frequency and focus patterns</li>
+            <li>Time-of-day preferences for different tasks</li>
+          </ul>
+
+          <h3>What We Don't Collect</h3>
+          <ul class="data-list">
+            <li>Full browsing history or specific URLs</li>
+            <li>Keystrokes, form inputs, or passwords</li>
+            <li>Personal information from websites</li>
+            <li>Downloaded files or credentials</li>
+          </ul>
+
+          <h3>Your Rights</h3>
+          <ul class="data-list">
+            <li>View all collected data</li>
+            <li>Export your data (GDPR right to portability)</li>
+            <li>Delete your data</li>
+            <li>Revoke consent at any time</li>
+          </ul>
+        </div>
+
+        <div class="button-group">
+          <button id="grantConsentBtn" class="btn btn-primary" style="display: none;">
+            Grant Consent
+          </button>
+          <button id="revokeConsentBtn" class="btn btn-danger" style="display: none;">
+            Revoke Consent
+          </button>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Data Retention</h2>
+        <p>Local data: Kept for 7 days, then automatically deleted</p>
+        <p>Server data: Kept for 90 days, anonymized after 30 days</p>
+        <p>Aggregated analytics: Stored indefinitely (fully anonymized)</p>
+      </section>
+    </div>
+
+    <!-- Preferences Tab -->
+    <div id="preferencesTab" class="tab-content">
+      <section class="card">
+        <h2>Notification Settings</h2>
+
+        <div class="setting-item">
+          <label class="checkbox-label">
+            <input type="checkbox" id="notificationsEnabled">
+            <span>Enable notifications</span>
+          </label>
+          <p class="setting-description">Get notified about task recommendations</p>
+        </div>
+
+        <div class="setting-item">
+          <label class="checkbox-label">
+            <input type="checkbox" id="syncEnabled">
+            <span>Enable automatic sync</span>
+          </label>
+          <p class="setting-description">Sync data with cloud for cross-device support</p>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Privacy Mode</h2>
+
+        <div class="setting-item">
+          <label class="radio-label">
+            <input type="radio" name="privacyMode" value="strict">
+            <span>Strict - Only track essential data</span>
+          </label>
+        </div>
+
+        <div class="setting-item">
+          <label class="radio-label">
+            <input type="radio" name="privacyMode" value="balanced" checked>
+            <span>Balanced - Track behavior for better recommendations</span>
+          </label>
+        </div>
+
+        <div class="setting-item">
+          <label class="radio-label">
+            <input type="radio" name="privacyMode" value="minimal">
+            <span>Minimal - Maximize data collection for AI</span>
+          </label>
+        </div>
+      </section>
+
+      <div class="button-group">
+        <button id="savePreferencesBtn" class="btn btn-primary">Save Preferences</button>
+      </div>
+    </div>
+
+    <!-- Your Data Tab -->
+    <div id="dataTab" class="tab-content">
+      <section class="card">
+        <h2>Data Management</h2>
+
+        <div class="data-stats">
+          <div class="stat-item">
+            <span class="stat-label">Activity Events</span>
+            <span class="stat-value" id="eventCount">--</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">Sessions</span>
+            <span class="stat-value" id="sessionCount">--</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">Storage Used</span>
+            <span class="stat-value" id="storageUsed">--</span>
+          </div>
+        </div>
+
+        <div class="button-group">
+          <button id="exportDataBtn" class="btn btn-outline">Export Data (JSON)</button>
+          <button id="viewDataBtn" class="btn btn-outline">View Raw Data</button>
+          <button id="deleteDataBtn" class="btn btn-danger">Delete All Data</button>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Sync Status</h2>
+        <div id="syncStatus" class="status-box">
+          <p id="syncStatusText">Checking sync status...</p>
+          <p id="lastSyncTime">Last sync: --</p>
+        </div>
+
+        <button id="manualSyncBtn" class="btn btn-outline">Sync Now</button>
+      </section>
+    </div>
+
+    <!-- Categories Tab -->
+    <div id="categoriesTab" class="tab-content">
+      <section class="card">
+        <h2>Category Database</h2>
+
+        <div class="category-stats">
+          <p><strong>Curated domains:</strong> <span id="curatedCount">--</span></p>
+          <p><strong>User overrides:</strong> <span id="overrideCount">--</span></p>
+          <p><strong>Heuristic rules:</strong> <span id="heuristicCount">--</span></p>
+        </div>
+
+        <h3>Add Custom Category</h3>
+        <div class="category-form">
+          <input type="text" id="domainInput" placeholder="example.com" class="input">
+          <select id="categorySelect" class="select">
+            <option value="work">Work</option>
+            <option value="leisure">Leisure</option>
+            <option value="social">Social</option>
+            <option value="neutral">Neutral</option>
+          </select>
+          <button id="addCategoryBtn" class="btn btn-primary">Add Override</button>
+        </div>
+
+        <div id="userOverrides" class="user-overrides">
+          <h3>Your Category Overrides</h3>
+          <div id="overridesList" class="overrides-list"></div>
+        </div>
+      </section>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <p>Pulse Extension v<span id="version">1.0.0</span></p>
+      <p><a href="https://pulse-privacy.example.com" target="_blank">Privacy Policy</a> |
+         <a href="https://pulse-support.example.com" target="_blank">Support</a></p>
+    </footer>
+  </div>
+
+  <script type="module" src="options.js"></script>
+</body>
+</html>

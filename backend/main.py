@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from models.base import init_db
-from routers import tasks_router, schedule_router, reflections_router, mood_router, ai_router
+from routers import tasks_router, schedule_router, reflections_router, mood_router, ai_router, extension_router
 
 # Initialize database tables
 init_db()
@@ -20,15 +20,19 @@ app = FastAPI(
     version="2.0.0",
 )
 
-# CORS middleware - origins from env var or defaults
-origins = os.getenv(
-    "CORS_ORIGINS",
-    "http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173"
-).split(",")
+# CORS middleware - origins from env var or defaults, plus extension support
+default_origins = "http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173"
+env_origins = os.getenv("CORS_ORIGINS", default_origins).split(",")
+
+# Combine environment origins with extension origins
+all_origins = [o.strip() for o in env_origins] + [
+    "chrome-extension://*",   # Chrome extension
+    "moz-extension://*"       # Firefox extension
+]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[o.strip() for o in origins],
+    allow_origins=all_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -40,6 +44,7 @@ app.include_router(schedule_router)
 app.include_router(reflections_router)
 app.include_router(mood_router)
 app.include_router(ai_router)
+app.include_router(extension_router)
 
 
 @app.get("/")
