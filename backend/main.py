@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from models.base import init_db
-from routers import tasks_router, schedule_router, reflections_router, mood_router
+from routers import tasks_router, schedule_router, reflections_router, mood_router, extension_router
 
 # Initialize database tables
 init_db()
@@ -19,10 +19,14 @@ app = FastAPI(
     version="2.0.0",
 )
 
-# CORS middleware for frontend
+# CORS middleware for frontend and extension
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # Next.js dev server
+    allow_origins=[
+        "http://localhost:3000",  # Next.js dev server
+        "chrome-extension://*",   # Chrome extension
+        "moz-extension://*"       # Firefox extension
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -33,6 +37,7 @@ app.include_router(tasks_router)
 app.include_router(schedule_router)
 app.include_router(reflections_router)
 app.include_router(mood_router)
+app.include_router(extension_router)
 
 
 @app.get("/")

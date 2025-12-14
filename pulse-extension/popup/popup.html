@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pulse - Your Calm Time Coach</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <header class="header">
+      <h1>Pulse</h1>
+      <p class="tagline">Your Calm Time Coach</p>
+    </header>
+
+    <!-- Consent Required Screen -->
+    <div id="consentRequired" class="screen" style="display: none;">
+      <div class="message-box warning">
+        <h2>Consent Required</h2>
+        <p>Pulse needs your permission to track browsing activity and provide personalized recommendations.</p>
+        <button id="reviewConsentBtn" class="btn btn-primary">Review & Grant Consent</button>
+      </div>
+    </div>
+
+    <!-- Main Screen -->
+    <div id="mainScreen" class="screen" style="display: none;">
+      <!-- Status Indicator -->
+      <div id="statusIndicator" class="status-indicator">
+        <span class="status-dot" id="statusDot"></span>
+        <span class="status-text" id="statusText">Initializing...</span>
+      </div>
+
+      <!-- Today's Activity Summary -->
+      <section class="activity-summary">
+        <h2>Today's Activity</h2>
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-label">Work Time</div>
+            <div class="stat-value" id="workTime">--</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Leisure Time</div>
+            <div class="stat-value" id="leisureTime">--</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Focus Score</div>
+            <div class="stat-value" id="focusScore">--</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Tab Switches</div>
+            <div class="stat-value" id="tabSwitches">--</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Current Recommendation -->
+      <section class="recommendation">
+        <h2>Recommended for You</h2>
+        <div id="recommendationCard" class="recommendation-card">
+          <div class="recommendation-text" id="recommendationText">
+            Loading recommendation...
+          </div>
+          <div class="recommendation-actions">
+            <button id="acceptRecommendation" class="btn btn-sm btn-primary">Accept</button>
+            <button id="dismissRecommendation" class="btn btn-sm btn-secondary">Dismiss</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Quick Actions -->
+      <section class="quick-actions">
+        <button id="syncNowBtn" class="btn btn-outline">
+          <span>🔄</span> Sync Now
+        </button>
+        <button id="viewStatsBtn" class="btn btn-outline">
+          <span>📊</span> View Stats
+        </button>
+      </section>
+
+      <!-- Footer -->
+      <footer class="footer">
+        <a href="../options/options.html" target="_blank" class="footer-link">Settings</a>
+        <span class="footer-separator">•</span>
+        <span class="version" id="version">v1.0.0</span>
+      </footer>
+    </div>
+
+    <!-- Error Screen -->
+    <div id="errorScreen" class="screen" style="display: none;">
+      <div class="message-box error">
+        <h2>Error</h2>
+        <p id="errorMessage">Something went wrong. Please try again.</p>
+        <button id="retryBtn" class="btn btn-primary">Retry</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="popup.js"></script>
+</body>
+</html>
