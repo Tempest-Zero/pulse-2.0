@@ -161,20 +161,31 @@ def init_db() -> None:
 def _ensure_default_user() -> None:
     """
     Ensure default user exists for single-user mode.
-    Required for AI recommendation logging.
+    Required for AI recommendation logging in legacy mode.
+    
+    Note: This creates a fallback user with a hashed default password.
+    In production, users should sign up with their own accounts.
     """
     from models.user import User
+    from core.auth import hash_password
     
     db = SessionLocal()
     try:
         # Check if default user (id=1) exists
         default_user = db.query(User).filter(User.id == 1).first()
         if not default_user:
-            # Create default user
-            default_user = User(id=1, username="default")
+            # Create default user with placeholder credentials
+            default_user = User(
+                id=1, 
+                email="default@pulse.local",
+                username="default",
+                password_hash=hash_password("pulse-default-2024"),  # Default password
+                is_active=True
+            )
             db.add(default_user)
             db.commit()
             print("[DB] Created default user (id=1) for AI features")
+            print("[DB] NOTE: Default user created with email 'default@pulse.local' - for development only")
         else:
             print("[DB] Default user already exists")
     except Exception as e:

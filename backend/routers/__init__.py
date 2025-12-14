@@ -7,6 +7,7 @@ from .reflections_router import router as reflections_router
 from .mood_router import router as mood_router
 from .ai_router import router as ai_router
 from .extension_router import router as extension_router
+from .auth_router import router as auth_router
 
 __all__ = [
     "tasks_router",
@@ -15,4 +16,6 @@ __all__ = [
     "mood_router",
     "ai_router",
     "extension_router",
+    "auth_router",
 ]
+
