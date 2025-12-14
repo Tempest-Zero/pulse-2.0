@@ -1,5 +1,8 @@
 "use client";
 
+// Disable static pre-rendering - this page uses useAuth which requires AuthProvider
+export const dynamic = 'force-dynamic';
+
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
