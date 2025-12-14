@@ -52,86 +52,92 @@ def get_recommendation(
     
     Returns a recommended action with optional task suggestion.
     """
-    user_id = AIConfig.get_user_id(user_id)
-    
-    # Update previous recommendation's next_recommendation_at for implicit feedback
-    _update_previous_recommendation(db, user_id)
-    
-    # Get recommendation
-    result = _recommender.get_recommendation(db, user_id)
-    
-    # Get alternative tasks if applicable
-    alternative_tasks = None
-    if result.task_id:
-        from ai.state import StateSerializer
-        from ai.actions import ActionType
-        state = StateSerializer.from_key(result.state_key)
-        alternatives = _task_selector.get_task_suggestions(
-            ActionType(result.action.value), state, db, limit=3
+    try:
+        user_id = AIConfig.get_user_id(user_id)
+        
+        # Update previous recommendation's next_recommendation_at for implicit feedback
+        _update_previous_recommendation(db, user_id)
+        
+        # Get recommendation
+        result = _recommender.get_recommendation(db, user_id)
+        
+        # Get alternative tasks if applicable
+        alternative_tasks = None
+        if result.task_id:
+            from ai.state import StateSerializer
+            from ai.actions import ActionType
+            state = StateSerializer.from_key(result.state_key)
+            alternatives = _task_selector.get_task_suggestions(
+                ActionType(result.action.value), state, db, limit=3
+            )
+            alternative_tasks = [
+                TaskSuggestion(
+                    id=t.id,
+                    title=t.title,
+                    priority=t.priority,
+                    estimated_duration_minutes=t.estimated_duration,
+                    deadline=t.deadline
+                )
+                for t in alternatives if t.id != result.task_id
+            ]
+        
+        # Get current mood for logging
+        mood_entry = db.query(MoodEntry).filter(
+            MoodEntry.user_id == user_id if not AIConfig.SINGLE_USER_MODE else True
+        ).order_by(MoodEntry.timestamp.desc()).first()
+        
+        # Create log entry
+        log = RecommendationLog(
+            user_id=user_id,
+            state_key=result.state_key,
+            state_snapshot={
+                "time": datetime.now().isoformat(),
+                "state_key": result.state_key,
+            },
+            action_type=result.action.value,
+            suggested_task_id=result.task_id,
+            suggested_duration_minutes=result.suggested_duration_minutes,
+            confidence=result.confidence,
+            strategy_used=result.strategy,
+            explanation=result.explanation,
+            mood_before=mood_entry.mood if mood_entry else None,
         )
-        alternative_tasks = [
-            TaskSuggestion(
-                id=t.id,
-                title=t.title,
-                priority=t.priority,
-                estimated_duration_minutes=t.estimated_duration,
-                deadline=t.deadline
-            )
-            for t in alternatives if t.id != result.task_id
-        ]
-    
-    # Get current mood for logging
-    mood_entry = db.query(MoodEntry).filter(
-        MoodEntry.user_id == user_id if not AIConfig.SINGLE_USER_MODE else True
-    ).order_by(MoodEntry.timestamp.desc()).first()
-    
-    # Create log entry
-    log = RecommendationLog(
-        user_id=user_id,
-        state_key=result.state_key,
-        state_snapshot={
-            "time": datetime.now().isoformat(),
-            "state_key": result.state_key,
-        },
-        action_type=result.action.value,
-        suggested_task_id=result.task_id,
-        suggested_duration_minutes=result.suggested_duration_minutes,
-        confidence=result.confidence,
-        strategy_used=result.strategy,
-        explanation=result.explanation,
-        mood_before=mood_entry.mood if mood_entry else None,
-    )
-    db.add(log)
-    db.commit()
-    db.refresh(log)
-    
-    # Build response
-    suggested_task = None
-    if result.task_id:
-        from models.task import Task
-        task = db.query(Task).filter(Task.id == result.task_id).first()
-        if task:
-            suggested_task = TaskSuggestion(
-                id=task.id,
-                title=task.title,
-                priority=task.priority,
-                estimated_duration_minutes=task.estimated_duration,
-                deadline=task.deadline
-            )
-    
-    return RecommendationResponse(
-        recommendation_id=log.id,
-        action_type=result.action.value,
-        action_display_name=result.action_display_name,
-        suggested_duration_minutes=result.suggested_duration_minutes,
-        explanation=result.explanation,
-        confidence=result.confidence,
-        strategy=result.strategy,
-        phase=result.phase,
-        suggested_task=suggested_task,
-        alternative_tasks=alternative_tasks,
-        state_key=result.state_key,
-    )
+        db.add(log)
+        db.commit()
+        db.refresh(log)
+        
+        # Build response
+        suggested_task = None
+        if result.task_id:
+            from models.task import Task
+            task = db.query(Task).filter(Task.id == result.task_id).first()
+            if task:
+                suggested_task = TaskSuggestion(
+                    id=task.id,
+                    title=task.title,
+                    priority=task.priority,
+                    estimated_duration_minutes=task.estimated_duration,
+                    deadline=task.deadline
+                )
+        
+        return RecommendationResponse(
+            recommendation_id=log.id,
+            action_type=result.action.value,
+            action_display_name=result.action_display_name,
+            suggested_duration_minutes=result.suggested_duration_minutes,
+            explanation=result.explanation,
+            confidence=result.confidence,
+            strategy=result.strategy,
+            phase=result.phase,
+            suggested_task=suggested_task,
+            alternative_tasks=alternative_tasks,
+            state_key=result.state_key,
+        )
+    except Exception as e:
+        import traceback
+        error_detail = f"{type(e).__name__}: {str(e)}\n{traceback.format_exc()}"
+        print(f"[AI] Recommendation error: {error_detail}")
+        raise HTTPException(status_code=500, detail=error_detail)
 
 
 @router.post("/feedback", response_model=FeedbackResponse)
