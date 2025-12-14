@@ -4,6 +4,7 @@ FastAPI application entry point.
 """
 
 import os
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -12,14 +13,46 @@ from fastapi.middleware.cors import CORSMiddleware
 from models import init_db, test_connection
 from routers import tasks_router, schedule_router, reflections_router, mood_router, ai_router, extension_router
 
-# Initialize database tables
-init_db()
+# Track database status
+db_initialized = False
+db_error = None
 
-# Create FastAPI app
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    Lifespan context manager for startup/shutdown events.
+    Database initialization happens here so the app can start even if DB fails.
+    """
+    global db_initialized, db_error
+    
+    print("[STARTUP] Initializing PULSE API...")
+    
+    # Try to initialize database (non-blocking - app starts even if this fails)
+    try:
+        init_db()
+        db_initialized = True
+        print("[STARTUP] Database initialized successfully")
+    except Exception as e:
+        db_error = str(e)
+        db_initialized = False
+        print(f"[STARTUP] WARNING: Database initialization failed: {e}")
+        print("[STARTUP] App will continue without database - health check will show degraded status")
+    
+    print("[STARTUP] PULSE API ready to serve requests")
+    
+    yield  # App runs here
+    
+    # Shutdown
+    print("[SHUTDOWN] PULSE API shutting down...")
+
+
+# Create FastAPI app with lifespan
 app = FastAPI(
     title="PULSE API",
     description="Backend API for PULSE - Your calm time coach",
     version="2.0.0",
+    lifespan=lifespan,
 )
 
 # CORS middleware - origins from env var or defaults, plus extension support
@@ -55,7 +88,8 @@ def root():
     return {
         "name": "PULSE API",
         "version": "2.0.0",
-        "status": "running"
+        "status": "running",
+        "database": "connected" if db_initialized else "disconnected"
     }
 
 
@@ -65,9 +99,12 @@ def health_check():
     Health check endpoint for Railway deployment.
     Verifies both API and database connectivity.
     """
-    db_connected = test_connection()
+    # Check live connection (not just init status)
+    db_connected = test_connection() if db_initialized else False
+    
     return {
         "status": "healthy" if db_connected else "degraded",
         "api": "ok",
-        "database": "connected" if db_connected else "disconnected"
+        "database": "connected" if db_connected else "disconnected",
+        "error": db_error if db_error else None
     }
