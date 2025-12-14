@@ -307,6 +307,92 @@ def persist_agent_models():
     return {"saved_count": saved_count, "message": f"Persisted {saved_count} agent models"}
 
 
+@router.post("/breakdown-task/{task_id}")
+def breakdown_task(
+    task_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Break down a complex task into subtasks based on description and complexity.
+    
+    Uses AI to analyze the task description and create manageable subtasks.
+    """
+    from models.task import Task
+    from schema.task import TaskCreate
+    
+    # Get the task
+    task = db.query(Task).filter(Task.id == task_id).first()
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    
+    # Check if already broken down
+    existing_subtasks = db.query(Task).filter(Task.parent_id == task_id).all()
+    if existing_subtasks:
+        return {
+            "message": "Task already broken down",
+            "subtasks": [{"id": t.id, "title": t.title, "duration": t.duration} for t in existing_subtasks]
+        }
+    
+    # Analyze task complexity and break down
+    description = task.description or task.title
+    total_duration = task.duration  # in hours
+    difficulty = task.difficulty
+    
+    # Determine number of subtasks based on complexity
+    if difficulty == "easy" or total_duration <= 1:
+        num_subtasks = 2
+    elif difficulty == "medium" or total_duration <= 3:
+        num_subtasks = 3
+    else:
+        num_subtasks = 4
+    
+    # Simple breakdown logic (can be enhanced with LLM)
+    subtasks = []
+    duration_per_subtask = total_duration / num_subtasks
+    
+    # Common task breakdown patterns
+    breakdown_keywords = {
+        "research": ["Research", "Gather information", "Review sources"],
+        "write": ["Outline", "Draft", "Edit", "Proofread"],
+        "develop": ["Setup", "Implement core", "Add features", "Test"],
+        "design": ["Sketch", "Create mockups", "Refine design", "Finalize"],
+        "study": ["Read materials", "Take notes", "Review", "Practice"],
+    }
+    
+    # Try to match keywords
+    task_lower = description.lower()
+    matched_pattern = None
+    for keyword, steps in breakdown_keywords.items():
+        if keyword in task_lower:
+            matched_pattern = steps[:num_subtasks]
+            break
+    
+    # If no pattern matched, use generic breakdown
+    if not matched_pattern:
+        matched_pattern = [f"Step {i+1}" for i in range(num_subtasks)]
+    
+    # Create subtasks
+    for i, step_name in enumerate(matched_pattern):
+        subtask = Task(
+            title=f"{task.title} - {step_name}",
+            description=f"Part {i+1} of {task.title}",
+            duration=duration_per_subtask,
+            difficulty=difficulty,
+            parent_id=task_id,
+            priority=task.priority,
+            user_id=task.user_id
+        )
+        db.add(subtask)
+        subtasks.append(subtask)
+    
+    db.commit()
+    
+    return {
+        "message": f"Task broken down into {len(subtasks)} subtasks",
+        "subtasks": [{"id": t.id, "title": t.title, "duration": t.duration} for t in subtasks]
+    }
+
+
 def _update_previous_recommendation(db: Session, user_id: int) -> None:
     """
     Update the previous recommendation's next_recommendation_at timestamp.

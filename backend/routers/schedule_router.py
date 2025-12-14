@@ -3,7 +3,7 @@ Schedule Router
 API endpoints for schedule block management.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, File, UploadFile
 from sqlalchemy.orm import Session
 from typing import List, Optional
 
@@ -133,3 +133,71 @@ def clear_all_blocks(
     db.query(ScheduleBlock).delete()
     db.commit()
     return
+
+
+@router.post("/upload-class-schedule")
+async def upload_class_schedule(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db)
+):
+    """
+    Upload a class schedule image.
+    Note: This is a placeholder - in production, you'd use OCR/ML to extract schedule.
+    For now, returns a message asking user to manually enter times.
+    """
+    # In production, you would:
+    # 1. Save the image
+    # 2. Use OCR (Tesseract) or ML model to extract schedule
+    # 3. Parse times and create fixed schedule blocks
+    
+    return {
+        "message": "Image uploaded. Please manually enter your class times below.",
+        "note": "Automatic schedule extraction coming soon!"
+    }
+
+
+@router.get("/available-slots")
+def get_available_slots(
+    start_hour: float = Query(9.0, ge=0, le=24),
+    end_hour: float = Query(20.0, ge=0, le=24),
+    duration: float = Query(1.0, ge=0.25, le=8.0),
+    db: Session = Depends(get_db)
+):
+    """
+    Get available time slots that don't conflict with fixed schedule blocks.
+    """
+    # Get all fixed blocks (class schedule)
+    fixed_blocks = db.query(ScheduleBlock).filter(
+        ScheduleBlock.block_type == "fixed"
+    ).order_by(ScheduleBlock.start).all()
+    
+    # Find available slots
+    available_slots = []
+    current_time = start_hour
+    
+    for block in fixed_blocks:
+        block_end = block.start + block.duration
+        
+        # If there's a gap before this block
+        if current_time + duration <= block.start:
+            available_slots.append({
+                "start": current_time,
+                "end": min(current_time + duration, block.start),
+                "duration": min(duration, block.start - current_time)
+            })
+        
+        # Move current_time to after this block
+        current_time = max(current_time, block_end)
+    
+    # Check if there's time after the last block
+    if current_time + duration <= end_hour:
+        available_slots.append({
+            "start": current_time,
+            "end": min(current_time + duration, end_hour),
+            "duration": min(duration, end_hour - current_time)
+        })
+    
+    return {
+        "available_slots": available_slots,
+        "fixed_blocks": [{"start": b.start, "end": b.start + b.duration, "title": b.title} for b in fixed_blocks]
+    }

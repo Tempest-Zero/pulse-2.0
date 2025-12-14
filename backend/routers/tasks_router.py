@@ -43,8 +43,10 @@ def create_task(
     """Create a new task."""
     task = Task(
         title=task_data.title,
+        description=task_data.description,
         duration=task_data.duration,
-        difficulty=task_data.difficulty
+        difficulty=task_data.difficulty,
+        parent_id=task_data.parent_id
     )
     db.add(task)
     db.commit()

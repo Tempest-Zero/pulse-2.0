@@ -36,6 +36,7 @@ class Task(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey('users.id'), nullable=True, index=True)  # nullable for migration
+    parent_id = Column(Integer, ForeignKey('tasks.id'), nullable=True, index=True)  # For subtasks
     title = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
     duration = Column(Float, default=1.0)  # Legacy: hours
@@ -76,6 +77,7 @@ class Task(Base):
             "completed": self.completed,
             "completedAt": self.completed_at.isoformat() if self.completed_at else None,
             "scheduledAt": self.scheduled_at,
+            "parentId": self.parent_id,
             "isDeleted": self.is_deleted,
             "isArchived": self.is_archived,
             "createdAt": self.created_at.isoformat() if self.created_at else None,

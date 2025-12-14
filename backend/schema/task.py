@@ -11,8 +11,10 @@ from datetime import datetime
 class TaskCreate(BaseModel):
     """Schema for creating a new task."""
     title: str = Field(..., min_length=1, max_length=255)
+    description: Optional[str] = Field(None, max_length=2000)
     duration: Union[int, float] = Field(default=1.0, ge=0.25, le=8.0)
     difficulty: str = Field(default="medium", pattern="^(easy|medium|hard)$")
+    parent_id: Optional[int] = Field(None, description="Parent task ID for subtasks")
     
     @field_validator('duration')
     @classmethod
@@ -36,9 +38,11 @@ class TaskResponse(BaseModel):
 
     id: int
     title: str
+    description: Optional[str] = None
     duration: float
     difficulty: str
     completed: bool
     scheduled_at: Optional[float] = Field(None, alias="scheduledAt")
+    parent_id: Optional[int] = Field(None, alias="parentId")
     created_at: Optional[datetime] = Field(None, alias="createdAt")
     updated_at: Optional[datetime] = Field(None, alias="updatedAt")
