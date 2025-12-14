@@ -9,17 +9,35 @@ from sqlalchemy.orm import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
 import os
 
-# Database file path (SQLite for development)
+# Database configuration
+# Use DATABASE_URL env var for production (Railway, Heroku, etc.)
+# Falls back to SQLite for local development
 DATABASE_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
 os.makedirs(DATABASE_DIR, exist_ok=True)
-DATABASE_URL = f"sqlite:///{os.path.join(DATABASE_DIR, 'pulse.db')}"
 
-# Create engine
-engine = create_engine(
-    DATABASE_URL,
-    connect_args={"check_same_thread": False},  # Required for SQLite
-    echo=False  # Set to True to see SQL queries in console
-)
+# Default SQLite URL for development
+DEFAULT_DATABASE_URL = f"sqlite:///{os.path.join(DATABASE_DIR, 'pulse.db')}"
+
+# Get DATABASE_URL from environment (Railway provides this automatically)
+DATABASE_URL = os.getenv("DATABASE_URL", DEFAULT_DATABASE_URL)
+
+# Railway uses postgres:// but SQLAlchemy requires postgresql://
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+
+# Determine if using SQLite (requires special connect_args)
+is_sqlite = DATABASE_URL.startswith("sqlite")
+
+# Create engine with appropriate settings
+engine_kwargs = {
+    "echo": os.getenv("SQL_ECHO", "false").lower() == "true"
+}
+
+# SQLite requires check_same_thread=False for FastAPI
+if is_sqlite:
+    engine_kwargs["connect_args"] = {"check_same_thread": False}
+
+engine = create_engine(DATABASE_URL, **engine_kwargs)
 
 # Create session factory
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

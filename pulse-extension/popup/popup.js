@@ -188,7 +188,7 @@ acceptRecommendation.addEventListener('click', async () => {
 
   // Open main Pulse app
   chrome.tabs.create({
-    url: 'http://localhost:3000' // Pulse frontend URL
+    url: 'https://pulse-20-production-314b.up.railway.app' // Pulse frontend URL
   });
 
   setTimeout(() => window.close(), 500);
@@ -232,7 +232,7 @@ syncNowBtn.addEventListener('click', async () => {
 // View stats button
 viewStatsBtn.addEventListener('click', () => {
   chrome.tabs.create({
-    url: 'http://localhost:3000/stats' // Pulse stats page
+    url: 'https://pulse-20-production-314b.up.railway.app/stats' // Pulse stats page
   });
   window.close();
 });

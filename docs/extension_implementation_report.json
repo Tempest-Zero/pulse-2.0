@@ -1,0 +1,652 @@
+{
+    "meta": {
+        "title": "Browser Extension for AI-Enhanced Scheduling",
+        "project": "Pulse 2.0",
+        "version": "1.0.0",
+        "created_at": "2025-12-14T17:56:00+05:00",
+        "author": "AI Assistant",
+        "status": "approved"
+    },
+    "executive_summary": {
+        "description": "Privacy-first browser extension that captures user browsing metadata (with explicit consent) to enhance Pulse 2.0's Reinforcement Learning scheduler",
+        "key_problem": "Current AI only learns from in-app activity, missing valuable behavioral signals during actual work",
+        "solution": "Browser extension that passively observes work patterns and feeds aggregated data to the AI",
+        "impact_metrics": {
+            "state_space": {
+                "current": 168,
+                "enhanced": 5000,
+                "unit": "discrete states"
+            },
+            "cold_start_period": {
+                "current": "20-60 recommendations",
+                "enhanced": "5-10 recommendations"
+            },
+            "energy_inference": {
+                "current": "Self-reported mood only",
+                "enhanced": "Real behavioral signals"
+            },
+            "learning_speed": {
+                "current": "Passive (waits for user)",
+                "enhanced": "Active (continuous observation)"
+            }
+        }
+    },
+    "architecture": {
+        "modular_structure": {
+            "note": "Extension is 100% separate from backend/frontend - zero coupling",
+            "root_location": "pulse-extension/",
+            "relationship": "Sibling to backend/ and frontend/"
+        },
+        "directory_structure": {
+            "pulse-extension/": {
+                "manifest.json": "Extension config (Manifest V3)",
+                "background/": {
+                    "service-worker.js": "Event handling, sync logic"
+                },
+                "content/": {
+                    "activity-tracker.js": "DOM visibility, focus events"
+                },
+                "popup/": {
+                    "popup.html": "Quick status view",
+                    "popup.js": "Consent toggle, stats"
+                },
+                "options/": {
+                    "options.html": "Full settings panel",
+                    "options.js": "Granular privacy controls"
+                },
+                "lib/": {
+                    "category-db.js": "Local domain→category mapping",
+                    "aggregator.js": "Raw events → aggregated metrics",
+                    "privacy-filter.js": "Ensure no PII leaves device"
+                },
+                "assets/": {
+                    "icons/": "Extension icons (16, 32, 48, 128px)"
+                }
+            }
+        },
+        "technology_stack": {
+            "extension_framework": {
+                "name": "Chrome Manifest V3",
+                "reason": "Modern security model, service workers"
+            },
+            "cross_browser": {
+                "name": "WebExtension APIs",
+                "compatible_with": [
+                    "Chrome",
+                    "Firefox",
+                    "Edge"
+                ]
+            },
+            "local_storage": {
+                "name": "IndexedDB",
+                "reason": "Large dataset handling, offline-first"
+            },
+            "sync_protocol": {
+                "method": "HTTPS + JWT",
+                "reason": "Secure backend communication"
+            },
+            "category_mapping": {
+                "method": "Local JSON database",
+                "reason": "No external API calls - privacy preserved"
+            }
+        }
+    },
+    "current_ai_analysis": {
+        "core_components": [
+            {
+                "name": "ContextEncoder",
+                "file": "backend/ai/context_encoder.py",
+                "purpose": "Converts raw user data and time into UserState for Q-Learning"
+            },
+            {
+                "name": "ScheduleAgent",
+                "file": "backend/ai/agent.py",
+                "purpose": "Q-Learning agent with thread-safe singleton pattern"
+            },
+            {
+                "name": "HybridRecommender",
+                "file": "backend/ai/hybrid_recommender.py",
+                "purpose": "Main orchestrator combining RL agent, rule engine, and supporting systems"
+            },
+            {
+                "name": "RewardCalculator",
+                "file": "backend/ai/reward_calculator.py",
+                "purpose": "Computes calibrated rewards for Q-Learning updates"
+            },
+            {
+                "name": "ImplicitFeedbackInferencer",
+                "file": "backend/ai/implicit_feedback.py",
+                "purpose": "Infers outcomes from user behavior patterns"
+            }
+        ],
+        "current_state_space": {
+            "total_states": 168,
+            "dimensions": [
+                {
+                    "name": "time_block",
+                    "values": [
+                        "morning",
+                        "afternoon",
+                        "evening",
+                        "night"
+                    ],
+                    "count": 4
+                },
+                {
+                    "name": "day_of_week",
+                    "values": [
+                        "monday",
+                        "tuesday",
+                        "wednesday",
+                        "thursday",
+                        "friday",
+                        "saturday",
+                        "sunday"
+                    ],
+                    "count": 7
+                },
+                {
+                    "name": "energy_level",
+                    "values": [
+                        "low",
+                        "medium",
+                        "high"
+                    ],
+                    "count": 3
+                },
+                {
+                    "name": "workload_pressure",
+                    "values": [
+                        "low",
+                        "high"
+                    ],
+                    "count": 2
+                }
+            ],
+            "calculation": "4 × 7 × 3 × 2 = 168"
+        },
+        "learning_phases": [
+            {
+                "name": "bootstrap",
+                "recommendation_range": "0-20",
+                "strategy": "Pure rule-based (cold start)"
+            },
+            {
+                "name": "transition",
+                "recommendation_range": "20-60",
+                "strategy": "Hybrid RL + rules"
+            },
+            {
+                "name": "learned",
+                "recommendation_range": "60+",
+                "strategy": "RL primary, rules fallback"
+            }
+        ]
+    },
+    "extension_design": {
+        "data_captured": [
+            {
+                "signal": "active_tab_focus_time",
+                "capture_method": "visibilitychange + focus events",
+                "privacy_level": "medium",
+                "ai_benefit": "Real engagement vs 'tab open'"
+            },
+            {
+                "signal": "tab_switches_frequency",
+                "capture_method": "Tab activation events",
+                "privacy_level": "low",
+                "ai_benefit": "Detect distraction patterns"
+            },
+            {
+                "signal": "website_category",
+                "capture_method": "Domain → category mapping (local)",
+                "privacy_level": "low",
+                "ai_benefit": "Work vs leisure detection"
+            },
+            {
+                "signal": "idle_detection",
+                "capture_method": "idle API",
+                "privacy_level": "low",
+                "ai_benefit": "Break patterns"
+            },
+            {
+                "signal": "session_continuity",
+                "capture_method": "Time gaps between activity",
+                "privacy_level": "low",
+                "ai_benefit": "Focus session lengths"
+            }
+        ],
+        "privacy_principles": [
+            {
+                "principle": "Explicit Opt-In",
+                "description": "Extension disabled by default; requires consent dialog"
+            },
+            {
+                "principle": "Local Processing",
+                "description": "All categorization happens on-device"
+            },
+            {
+                "principle": "Data Minimization",
+                "description": "Only aggregates (not raw URLs) leave the browser"
+            },
+            {
+                "principle": "User Dashboard",
+                "description": "Real-time view of what's being collected"
+            },
+            {
+                "principle": "Easy Deletion",
+                "description": "One-click to purge all historical data"
+            },
+            {
+                "principle": "Granular Controls",
+                "description": "Enable/disable per-feature"
+            }
+        ],
+        "data_never_collected": [
+            "URLs",
+            "Page titles",
+            "Page content/text",
+            "Form inputs",
+            "Keystroke data",
+            "Passwords",
+            "Precise timestamps (only hour-level)",
+            "Personally identifiable information"
+        ]
+    },
+    "enhanced_state_space": {
+        "total_states": 9072,
+        "calculation": "4 × 7 × 3 × 2 × 3 × 3 × 3 × 2 = 9,072",
+        "original_dimensions": [
+            {
+                "name": "time_block",
+                "count": 4
+            },
+            {
+                "name": "day_of_week",
+                "count": 7
+            },
+            {
+                "name": "energy_level",
+                "count": 3
+            },
+            {
+                "name": "workload_pressure",
+                "count": 2
+            }
+        ],
+        "new_dimensions": [
+            {
+                "name": "focus_level",
+                "values": [
+                    "scattered",
+                    "normal",
+                    "deep"
+                ],
+                "count": 3,
+                "calculation": "avg_focus_time / tab_switches"
+            },
+            {
+                "name": "activity_type",
+                "values": [
+                    "work",
+                    "leisure",
+                    "mixed"
+                ],
+                "count": 3,
+                "calculation": "Category distribution (work %, leisure %)"
+            },
+            {
+                "name": "session_length",
+                "values": [
+                    "short",
+                    "medium",
+                    "long"
+                ],
+                "count": 3,
+                "thresholds": {
+                    "short": "< 30 minutes",
+                    "medium": "30-120 minutes",
+                    "long": "> 2 hours"
+                }
+            },
+            {
+                "name": "distraction_score",
+                "values": [
+                    "low",
+                    "high"
+                ],
+                "count": 2,
+                "calculation": "Tab switches + idle breaks per hour"
+            }
+        ]
+    },
+    "backend_integration": {
+        "new_api_endpoints": [
+            {
+                "method": "POST",
+                "path": "/api/v1/extension/sync",
+                "file": "backend/routers/extension.py",
+                "purpose": "Receive aggregated browsing metadata from extension",
+                "payload": {
+                    "session_id": "string",
+                    "timestamp": "datetime",
+                    "metrics": "BrowsingMetrics",
+                    "consent_version": "string"
+                }
+            },
+            {
+                "method": "POST",
+                "path": "/api/v1/extension/consent",
+                "file": "backend/routers/extension.py",
+                "purpose": "Update user's data collection consent preferences"
+            },
+            {
+                "method": "DELETE",
+                "path": "/api/v1/extension/data",
+                "file": "backend/routers/extension.py",
+                "purpose": "Permanently delete all extension-collected data"
+            },
+            {
+                "method": "GET",
+                "path": "/api/v1/extension/status",
+                "file": "backend/routers/extension.py",
+                "purpose": "Get extension connection status and consent state"
+            }
+        ],
+        "new_database_models": [
+            {
+                "name": "BrowsingSession",
+                "file": "backend/models/extension_metadata.py",
+                "table_name": "browsing_sessions",
+                "fields": [
+                    {
+                        "name": "id",
+                        "type": "int",
+                        "primary_key": true
+                    },
+                    {
+                        "name": "user_id",
+                        "type": "int",
+                        "foreign_key": "users.id"
+                    },
+                    {
+                        "name": "session_start",
+                        "type": "datetime"
+                    },
+                    {
+                        "name": "session_end",
+                        "type": "datetime"
+                    },
+                    {
+                        "name": "total_focus_minutes",
+                        "type": "float"
+                    },
+                    {
+                        "name": "tab_switch_count",
+                        "type": "int"
+                    },
+                    {
+                        "name": "work_percentage",
+                        "type": "float",
+                        "range": "0.0-1.0"
+                    },
+                    {
+                        "name": "leisure_percentage",
+                        "type": "float",
+                        "range": "0.0-1.0"
+                    },
+                    {
+                        "name": "idle_breaks",
+                        "type": "int"
+                    },
+                    {
+                        "name": "consent_version",
+                        "type": "string"
+                    },
+                    {
+                        "name": "collected_at",
+                        "type": "datetime"
+                    }
+                ]
+            },
+            {
+                "name": "UserExtensionConsent",
+                "file": "backend/models/extension_metadata.py",
+                "table_name": "user_extension_consent",
+                "fields": [
+                    {
+                        "name": "id",
+                        "type": "int",
+                        "primary_key": true
+                    },
+                    {
+                        "name": "user_id",
+                        "type": "int",
+                        "foreign_key": "users.id",
+                        "unique": true
+                    },
+                    {
+                        "name": "focus_tracking_enabled",
+                        "type": "bool",
+                        "default": false
+                    },
+                    {
+                        "name": "tab_switch_tracking_enabled",
+                        "type": "bool",
+                        "default": false
+                    },
+                    {
+                        "name": "category_tracking_enabled",
+                        "type": "bool",
+                        "default": false
+                    },
+                    {
+                        "name": "idle_detection_enabled",
+                        "type": "bool",
+                        "default": false
+                    },
+                    {
+                        "name": "consent_granted_at",
+                        "type": "datetime"
+                    },
+                    {
+                        "name": "consent_version",
+                        "type": "string"
+                    }
+                ]
+            }
+        ],
+        "modified_files": [
+            {
+                "file": "backend/ai/context_encoder.py",
+                "change": "Add extension_data parameter to encode() method",
+                "purpose": "Use behavioral signals when available"
+            },
+            {
+                "file": "backend/ai/state.py",
+                "change": "Create EnhancedUserState with new dimensions",
+                "purpose": "Support expanded state space"
+            }
+        ]
+    },
+    "implementation_roadmap": {
+        "total_duration": "8 weeks",
+        "phases": [
+            {
+                "name": "Phase 1: Foundation",
+                "duration": "Week 1-2",
+                "tasks": [
+                    {
+                        "task": "Create Manifest V3 extension skeleton",
+                        "priority": "high",
+                        "effort_hours": 4
+                    },
+                    {
+                        "task": "Implement basic activity tracking",
+                        "priority": "high",
+                        "effort_hours": 8
+                    },
+                    {
+                        "task": "Build local category database (500+ domains)",
+                        "priority": "medium",
+                        "effort_hours": 6
+                    },
+                    {
+                        "task": "Design consent UI mockups",
+                        "priority": "medium",
+                        "effort_hours": 4
+                    }
+                ]
+            },
+            {
+                "name": "Phase 2: Backend Integration",
+                "duration": "Week 3-4",
+                "tasks": [
+                    {
+                        "task": "Create extension.py router",
+                        "priority": "high",
+                        "effort_hours": 4
+                    },
+                    {
+                        "task": "Add BrowsingSession and UserExtensionConsent models",
+                        "priority": "high",
+                        "effort_hours": 3
+                    },
+                    {
+                        "task": "Update ContextEncoder for extension data",
+                        "priority": "high",
+                        "effort_hours": 6
+                    },
+                    {
+                        "task": "Create extension sync API tests",
+                        "priority": "high",
+                        "effort_hours": 4
+                    }
+                ]
+            },
+            {
+                "name": "Phase 3: Enhanced AI",
+                "duration": "Week 5-6",
+                "tasks": [
+                    {
+                        "task": "Expand UserState to EnhancedUserState",
+                        "priority": "high",
+                        "effort_hours": 6
+                    },
+                    {
+                        "task": "Update Q-table schema for new state space",
+                        "priority": "high",
+                        "effort_hours": 4
+                    },
+                    {
+                        "task": "Implement feature engineering functions",
+                        "priority": "medium",
+                        "effort_hours": 8
+                    },
+                    {
+                        "task": "Tune reward calculator for behavioral signals",
+                        "priority": "medium",
+                        "effort_hours": 4
+                    }
+                ]
+            },
+            {
+                "name": "Phase 4: Polish & Testing",
+                "duration": "Week 7-8",
+                "tasks": [
+                    {
+                        "task": "Cross-browser compatibility testing",
+                        "priority": "high",
+                        "effort_hours": 8
+                    },
+                    {
+                        "task": "Privacy audit (GDPR/CCPA compliance check)",
+                        "priority": "high",
+                        "effort_hours": 6
+                    },
+                    {
+                        "task": "User study with opt-in beta testers",
+                        "priority": "high",
+                        "effort_hours": "ongoing"
+                    },
+                    {
+                        "task": "Performance optimization",
+                        "priority": "medium",
+                        "effort_hours": 4
+                    }
+                ]
+            }
+        ]
+    },
+    "risk_assessment": [
+        {
+            "risk": "User privacy concerns",
+            "impact": "high",
+            "mitigation": "Transparency-first design, granular controls, easy data deletion"
+        },
+        {
+            "risk": "Browser API changes",
+            "impact": "medium",
+            "mitigation": "Abstract browser APIs behind compatibility layer"
+        },
+        {
+            "risk": "State space explosion",
+            "impact": "medium",
+            "mitigation": "Use state aggregation / function approximation if needed"
+        },
+        {
+            "risk": "Low adoption rate",
+            "impact": "medium",
+            "mitigation": "Clear value proposition, non-intrusive consent flow"
+        },
+        {
+            "risk": "Data storage costs",
+            "impact": "low",
+            "mitigation": "Aggressive local aggregation before sync"
+        }
+    ],
+    "success_metrics": [
+        {
+            "metric": "Extension install rate",
+            "target": "30% of active users",
+            "measurement": "Analytics"
+        },
+        {
+            "metric": "Consent opt-in rate",
+            "target": "60% of installers",
+            "measurement": "Backend API"
+        },
+        {
+            "metric": "Cold start improvement",
+            "target": "80% faster personalization",
+            "measurement": "A/B test"
+        },
+        {
+            "metric": "Schedule adherence",
+            "target": "+15% task completion",
+            "measurement": "User data"
+        },
+        {
+            "metric": "User satisfaction",
+            "target": "+10 NPS points",
+            "measurement": "Survey"
+        }
+    ],
+    "project_structure_final": {
+        "description": "Complete modular structure after extension is added",
+        "tree": {
+            "Pulse 2.0/": {
+                "backend/": "FastAPI backend (existing)",
+                "frontend/": "React frontend (existing)",
+                "pulse-extension/": "Browser extension (NEW - completely separate)",
+                "docs/": "Documentation",
+                "tests/": "Test suites"
+            }
+        },
+        "communication": {
+            "extension_to_backend": "REST API over HTTPS with JWT authentication",
+            "no_direct_imports": true,
+            "shared_types": "Extension has its own TypeScript types that mirror backend schemas"
+        }
+    }
+}
