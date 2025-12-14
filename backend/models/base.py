@@ -59,10 +59,15 @@ def prepare_database_url(url: str) -> str:
 # Prepare the DATABASE_URL
 if DATABASE_URL:
     DATABASE_URL = prepare_database_url(DATABASE_URL)
-    # Mask password in logs for security
-    parsed = urlparse(DATABASE_URL)
-    masked_host = f"{parsed.hostname}:{parsed.port}" if parsed.port else parsed.hostname
-    print(f"[DB] Using PostgreSQL: {parsed.scheme}://***@{masked_host}/{parsed.path.lstrip('/')}")
+    
+    # SAFE LOGGING: Don't try to parse the URL if it's complex/IPv6
+    try:
+        parsed = urlparse(DATABASE_URL)
+        masked_host = f"{parsed.hostname}:{parsed.port}" if parsed.port else parsed.hostname
+        print(f"[DB] Using PostgreSQL: {parsed.scheme}://***@{masked_host}/{parsed.path.lstrip('/')}")
+    except Exception:
+        # If parsing fails, just print a generic message to avoid crashing
+        print(f"[DB] Using PostgreSQL (URL masking failed due to complex format)")
 else:
     # Fall back to SQLite for local development
     DATABASE_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
