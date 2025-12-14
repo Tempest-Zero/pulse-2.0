@@ -150,12 +150,71 @@ def init_db() -> None:
         Base.metadata.create_all(bind=engine)
         print(f"[DB] init_db() complete - {len(table_names)} tables created/verified")
 
+        # Run migrations to add missing columns
+        _run_migrations()
+
         # Create default user if it doesn't exist (required for AI features)
         _ensure_default_user()
 
     except Exception as e:
         print(f"[DB] ERROR during init_db(): {e}")
         raise
+
+
+def _run_migrations() -> None:
+    """
+    Run database migrations to add missing columns.
+    This ensures the schema is up-to-date with the latest model definitions.
+    """
+    db = SessionLocal()
+    try:
+        # Check if users table has the new auth columns
+        result = db.execute(text("""
+            SELECT column_name 
+            FROM information_schema.columns 
+            WHERE table_name = 'users' AND column_name IN ('email', 'password_hash', 'is_active')
+        """))
+        existing_columns = {row[0] for row in result.fetchall()}
+        
+        migrations_run = []
+        
+        # Add email column if missing
+        if 'email' not in existing_columns:
+            db.execute(text("ALTER TABLE users ADD COLUMN email VARCHAR(255)"))
+            db.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS ix_users_email ON users(email)"))
+            migrations_run.append("email")
+        
+        # Add password_hash column if missing
+        if 'password_hash' not in existing_columns:
+            db.execute(text("ALTER TABLE users ADD COLUMN password_hash VARCHAR(255)"))
+            migrations_run.append("password_hash")
+        
+        # Add is_active column if missing
+        if 'is_active' not in existing_columns:
+            db.execute(text("ALTER TABLE users ADD COLUMN is_active BOOLEAN DEFAULT TRUE"))
+            migrations_run.append("is_active")
+        
+        if migrations_run:
+            # Update existing users with default values
+            db.execute(text("""
+                UPDATE users 
+                SET 
+                    email = COALESCE(email, 'user_' || id || '@pulse.local'),
+                    password_hash = COALESCE(password_hash, '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/X4.O/qH8vF/Y5QyHm'),
+                    is_active = COALESCE(is_active, TRUE)
+                WHERE email IS NULL OR password_hash IS NULL
+            """))
+            db.commit()
+            print(f"[DB] Migrations applied: {', '.join(migrations_run)}")
+        else:
+            print("[DB] Schema is up-to-date, no migrations needed")
+            
+    except Exception as e:
+        db.rollback()
+        print(f"[DB] Warning: Migration check failed: {e}")
+        # Don't raise - let app continue, create_all will handle new tables
+    finally:
+        db.close()
 
 
 def _ensure_default_user() -> None:
