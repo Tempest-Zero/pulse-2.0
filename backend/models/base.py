@@ -226,7 +226,9 @@ def _ensure_default_user() -> None:
     In production, users should sign up with their own accounts.
     """
     from models.user import User
-    from core.auth import hash_password
+    # Pre-computed bcrypt hash for 'pulse-default-2024' 
+    # (avoids circular import with core.auth)
+    DEFAULT_PASSWORD_HASH = "$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/X4.O/qH8vF/Y5QyHm"
     
     db = SessionLocal()
     try:
@@ -238,7 +240,7 @@ def _ensure_default_user() -> None:
                 id=1, 
                 email="default@pulse.local",
                 username="default",
-                password_hash=hash_password("pulse-default-2024"),  # Default password
+                password_hash=DEFAULT_PASSWORD_HASH,  # password: 'pulse-default-2024'
                 is_active=True
             )
             db.add(default_user)
