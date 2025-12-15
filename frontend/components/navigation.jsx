@@ -13,16 +13,16 @@ export function Navigation() {
 
   const navLinks = isLanding
     ? [
-        { href: "#features", label: "Features" },
-        { href: "#how-it-works", label: "How it Works" },
-        { href: "#pricing", label: "Pricing" },
-      ]
+      { href: "#features", label: "Features" },
+      { href: "#how-it-works", label: "How it Works" },
+      { href: "#pricing", label: "Pricing" },
+    ]
     : [
-        { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-        { href: "/schedule", label: "Schedule", icon: CalendarDays },
-        { href: "/insights", label: "Insights", icon: TrendingUp },
-        { href: "/settings", label: "Settings", icon: Settings },
-      ]
+      { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+      { href: "/schedule", label: "Schedule", icon: CalendarDays },
+      { href: "/insights", label: "Insights", icon: TrendingUp },
+      { href: "/settings", label: "Settings", icon: Settings },
+    ]
 
   return (
     <nav className="sticky top-0 z-50 bg-background/80 backdrop-blur-lg border-b border-border/50">
@@ -40,9 +40,8 @@ export function Navigation() {
             <Link
               key={link.href}
               href={link.href}
-              className={`flex items-center gap-2 transition-colors ${
-                pathname === link.href ? "text-accent font-semibold" : "text-muted-foreground hover:text-foreground"
-              }`}
+              className={`flex items-center gap-2 transition-colors ${pathname === link.href ? "text-accent font-semibold" : "text-muted-foreground hover:text-foreground"
+                }`}
             >
               {link.icon && <link.icon className="w-4 h-4" />}
               {link.label}
@@ -54,10 +53,10 @@ export function Navigation() {
           {isLanding ? (
             <>
               <Button variant="ghost" asChild>
-                <Link href="/dashboard">Sign In</Link>
+                <Link href="/auth">Sign In</Link>
               </Button>
               <Button className="bg-accent text-accent-foreground hover:bg-accent/90" asChild>
-                <Link href="/dashboard">Get Started</Link>
+                <Link href="/auth">Get Started</Link>
               </Button>
             </>
           ) : (
@@ -84,11 +83,10 @@ export function Navigation() {
                 key={link.href}
                 href={link.href}
                 onClick={() => setMobileMenuOpen(false)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
-                  pathname === link.href
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${pathname === link.href
                     ? "bg-accent/20 text-accent font-semibold"
                     : "text-muted-foreground hover:bg-muted"
-                }`}
+                  }`}
               >
                 {link.icon && <link.icon className="w-4 h-4" />}
                 {link.label}
@@ -97,12 +95,12 @@ export function Navigation() {
             {isLanding ? (
               <div className="flex flex-col gap-2 pt-4 border-t border-border/50">
                 <Button variant="ghost" asChild>
-                  <Link href="/dashboard" onClick={() => setMobileMenuOpen(false)}>
+                  <Link href="/auth" onClick={() => setMobileMenuOpen(false)}>
                     Sign In
                   </Link>
                 </Button>
                 <Button className="bg-accent text-accent-foreground hover:bg-accent/90" asChild>
-                  <Link href="/dashboard" onClick={() => setMobileMenuOpen(false)}>
+                  <Link href="/auth" onClick={() => setMobileMenuOpen(false)}>
                     Get Started
                   </Link>
                 </Button>
