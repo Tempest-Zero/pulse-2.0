@@ -1,0 +1,288 @@
+{
+    "name": "Pulse 2.0",
+    "description": "PULSE - Personal Productivity Coach with AI-powered scheduling",
+    "structure": {
+        "root_files": [
+            ".gitignore",
+            "README.md",
+            "DEPLOYMENT.md",
+            "BROWSER_EXTENSION_IMPLEMENTATION.md"
+        ],
+        "backend": {
+            "description": "FastAPI Python backend with AI recommendation engine",
+            "entry_point": "main.py",
+            "config_files": [
+                "requirements.txt",
+                "requirements-test.txt",
+                "nixpacks.toml",
+                "railway.json",
+                "runtime.txt",
+                "Procfile",
+                ".env.example"
+            ],
+            "ai": {
+                "description": "Reinforcement Learning based recommendation system",
+                "files": [
+                    "__init__.py",
+                    "actions.py",
+                    "action_masker.py",
+                    "agent.py",
+                    "config.py",
+                    "context_encoder.py",
+                    "dqn_agent.py",
+                    "feature_encoder.py",
+                    "hybrid_recommender.py",
+                    "implicit_feedback.py",
+                    "mood_mapper.py",
+                    "replay_buffer.py",
+                    "reward_calculator.py",
+                    "rule_engine.py",
+                    "state.py",
+                    "task_selector.py"
+                ]
+            },
+            "core": {
+                "description": "Core utilities including authentication",
+                "files": [
+                    "auth.py"
+                ]
+            },
+            "crud": {
+                "description": "Database CRUD operations",
+                "files": [
+                    "tasks.py",
+                    "schedule.py",
+                    "reflections.py",
+                    "mood.py"
+                ]
+            },
+            "models": {
+                "description": "SQLAlchemy ORM models",
+                "files": [
+                    "__init__.py",
+                    "base.py",
+                    "user.py",
+                    "task.py",
+                    "schedule.py",
+                    "reflection.py",
+                    "mood.py",
+                    "recommendation_log.py",
+                    "extension_metadata.py"
+                ]
+            },
+            "routers": {
+                "description": "FastAPI API endpoints",
+                "files": [
+                    "__init__.py",
+                    "tasks_router.py",
+                    "schedule_router.py",
+                    "reflections_router.py",
+                    "mood_router.py",
+                    "ai_router.py",
+                    "auth_router.py",
+                    "extension_router.py"
+                ]
+            },
+            "schema": {
+                "description": "Pydantic request/response schemas"
+            },
+            "migrations": {
+                "description": "Database migration scripts",
+                "files": [
+                    "001_add_auth_columns.sql"
+                ]
+            },
+            "tests": {
+                "description": "Pytest test suite"
+            }
+        },
+        "frontend": {
+            "description": "Next.js 16 React frontend",
+            "framework": "Next.js 16.0.10 (App Router)",
+            "config_files": [
+                "package.json",
+                "next.config.mjs",
+                "tsconfig.json",
+                "jsconfig.json",
+                "postcss.config.mjs",
+                ".env.production"
+            ],
+            "app": {
+                "description": "Next.js App Router pages",
+                "routes": [
+                    {
+                        "path": "/",
+                        "file": "page.jsx",
+                        "description": "Landing page"
+                    },
+                    {
+                        "path": "/auth",
+                        "file": "auth/page.jsx",
+                        "description": "Login/Signup page"
+                    },
+                    {
+                        "path": "/dashboard",
+                        "file": "dashboard/page.jsx",
+                        "description": "Main dashboard with AI recommendations"
+                    },
+                    {
+                        "path": "/schedule",
+                        "file": "schedule/page.jsx",
+                        "description": "Schedule management"
+                    },
+                    {
+                        "path": "/checkin",
+                        "file": "checkin/page.jsx",
+                        "description": "Daily check-in and reflections"
+                    },
+                    {
+                        "path": "/insights",
+                        "file": "insights/page.jsx",
+                        "description": "Analytics and insights"
+                    },
+                    {
+                        "path": "/settings",
+                        "file": "settings/page.jsx",
+                        "description": "User settings"
+                    }
+                ],
+                "layouts": [
+                    "layout.jsx",
+                    "layout.tsx"
+                ]
+            },
+            "components": {
+                "description": "React UI components",
+                "key_components": [
+                    "ai-recommendation.jsx",
+                    "navigation.jsx",
+                    "auth-form.jsx",
+                    "theme-provider.tsx"
+                ],
+                "ui": {
+                    "description": "shadcn/ui component library (57 components)"
+                }
+            },
+            "lib": {
+                "description": "Utility libraries and hooks",
+                "files": [
+                    "auth-context.js",
+                    "api/config.js"
+                ]
+            },
+            "hooks": {
+                "description": "Custom React hooks"
+            },
+            "styles": {
+                "description": "Global CSS styles"
+            }
+        },
+        "pulse-extension": {
+            "description": "Chrome/Firefox browser extension for activity tracking",
+            "manifest_version": 3,
+            "structure": {
+                "manifest.json": "Extension configuration",
+                "background": {
+                    "description": "Service worker for background tasks",
+                    "files": [
+                        "service-worker.js"
+                    ]
+                },
+                "content": {
+                    "description": "Content scripts injected into pages",
+                    "files": [
+                        "activity-tracker.js"
+                    ]
+                },
+                "popup": {
+                    "description": "Extension popup UI",
+                    "files": [
+                        "popup.html",
+                        "popup.js",
+                        "popup.css"
+                    ]
+                },
+                "options": {
+                    "description": "Extension settings page",
+                    "files": [
+                        "options.html",
+                        "options.js",
+                        "options.css"
+                    ]
+                },
+                "lib": {
+                    "description": "Shared libraries",
+                    "files": [
+                        "api-client.js",
+                        "category-db.js",
+                        "consent-manager.js",
+                        "storage-manager.js",
+                        "sync-scheduler.js"
+                    ]
+                },
+                "assets": {
+                    "description": "Extension icons and images"
+                }
+            }
+        },
+        "docs": {
+            "description": "Documentation and reports",
+            "files": [
+                "auth_troubleshooting_guide.json",
+                "troubleshooting_guide.json",
+                "extension_implementation_report.json"
+            ]
+        }
+    },
+    "deployment": {
+        "platform": "Railway",
+        "services": {
+            "backend": {
+                "url": "https://back-end-304.up.railway.app",
+                "build": "nixpacks",
+                "start_command": "/app/venv/bin/uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}"
+            },
+            "frontend": {
+                "url": "https://pulse-20-production-314b.up.railway.app",
+                "build": "npm run build",
+                "framework": "Next.js"
+            }
+        },
+        "database": {
+            "provider": "Supabase",
+            "type": "PostgreSQL",
+            "connection": "Session Pooler (port 6543)"
+        }
+    },
+    "tech_stack": {
+        "backend": {
+            "language": "Python 3.11",
+            "framework": "FastAPI 0.121.2",
+            "orm": "SQLAlchemy 2.0.45",
+            "ai_ml": [
+                "PyTorch 2.2.0 (CPU)",
+                "scikit-learn 1.4.0",
+                "NumPy",
+                "Pandas"
+            ],
+            "auth": [
+                "python-jose",
+                "passlib[bcrypt]",
+                "email-validator"
+            ]
+        },
+        "frontend": {
+            "language": "JavaScript/TypeScript",
+            "framework": "Next.js 16.0.10",
+            "ui_library": "shadcn/ui",
+            "styling": "Tailwind CSS"
+        },
+        "extension": {
+            "manifest_version": 3,
+            "supported_browsers": [
+                "Chrome",
+                "Firefox"
+            ]
+        }
+    }
+}
