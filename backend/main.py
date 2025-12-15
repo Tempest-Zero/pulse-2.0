@@ -106,15 +106,17 @@ app = FastAPI(
 default_origins = "http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173"
 env_origins = os.getenv("CORS_ORIGINS", default_origins).split(",")
 
-# Combine environment origins with extension origins
-all_origins = [o.strip() for o in env_origins] + [
-    "chrome-extension://*",   # Chrome extension
-    "moz-extension://*"       # Firefox extension
-]
+# Clean up environment origins
+allowed_origins = [o.strip() for o in env_origins]
+
+# Regex pattern for browser extensions (Chrome and Firefox)
+# CORS wildcards like "chrome-extension://*" don't work, need regex instead
+extension_regex = r"^(chrome-extension|moz-extension)://.*$"
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=all_origins,
+    allow_origins=allowed_origins,
+    allow_origin_regex=extension_regex,  # Properly matches extension origins
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
