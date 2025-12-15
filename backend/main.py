@@ -57,6 +57,15 @@ async def lifespan(app: FastAPI):
             print("[STARTUP] Startup tasks completed")
         except Exception as e:
             print(f"[STARTUP] WARNING: Startup tasks failed: {e}")
+
+        # Auto-seed if SEED_DATA environment variable is set
+        if os.getenv("SEED_DATA", "").lower() in ("true", "1", "yes"):
+            try:
+                from seed_data import main as seed_main
+                seed_main()
+                print("[STARTUP] Database seeded with test data")
+            except Exception as e:
+                print(f"[STARTUP] WARNING: Seeding failed: {e}")
     
     # Start background task runner for periodic tasks
     # (model persistence every 5 min, outcome inference every 30 min)
@@ -149,7 +158,7 @@ def health_check():
     """
     # Check live connection (not just init status)
     db_connected = test_connection() if db_initialized else False
-    
+
     return {
         "status": "healthy" if db_connected else "degraded",
         "api": "ok",
@@ -157,3 +166,29 @@ def health_check():
         "background_tasks": "running" if _background_task and not _background_task.done() else "stopped",
         "error": db_error if db_error else None
     }
+
+
+@app.post("/dev/seed")
+def seed_database():
+    """
+    Seed the database with test data.
+    Creates a test user and sample data for development/testing.
+
+    Test user credentials: test@pulse.app / password123
+    """
+    if not db_initialized:
+        return {"success": False, "error": "Database not initialized"}
+
+    try:
+        from seed_data import main as seed_main
+        seed_main()
+        return {
+            "success": True,
+            "message": "Database seeded successfully",
+            "test_user": {
+                "email": "test@pulse.app",
+                "password": "password123"
+            }
+        }
+    except Exception as e:
+        return {"success": False, "error": str(e)}
