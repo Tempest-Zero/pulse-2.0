@@ -91,7 +91,7 @@ def get_recommendation(
             user_id=user_id,
             state_key=result.state_key,
             state_snapshot={
-                "time": datetime.now().isoformat(),
+                "time": datetime.now(timezone.utc).isoformat(),
                 "state_key": result.state_key,
             },
             action_type=result.action.value,

@@ -168,47 +168,70 @@ def _run_migrations() -> None:
     """
     db = SessionLocal()
     try:
+        # First check if users table exists at all
+        table_check = db.execute(text("""
+            SELECT EXISTS (
+                SELECT FROM information_schema.tables
+                WHERE table_schema = 'public' AND table_name = 'users'
+            )
+        """))
+        table_exists = table_check.scalar()
+
+        if not table_exists:
+            print("[DB] Users table does not exist yet - will be created by create_all()")
+            return
+
         # Check if users table has the new auth columns
         result = db.execute(text("""
-            SELECT column_name 
-            FROM information_schema.columns 
-            WHERE table_name = 'users' AND column_name IN ('email', 'password_hash', 'is_active')
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_schema = 'public'
+            AND table_name = 'users'
+            AND column_name IN ('email', 'password_hash', 'is_active', 'username')
         """))
         existing_columns = {row[0] for row in result.fetchall()}
-        
+
         migrations_run = []
-        
+
+        # Add username column if missing (needed for User model)
+        if 'username' not in existing_columns:
+            db.execute(text("ALTER TABLE users ADD COLUMN username VARCHAR(50)"))
+            db.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS ix_users_username ON users(username)"))
+            migrations_run.append("username")
+
         # Add email column if missing
         if 'email' not in existing_columns:
             db.execute(text("ALTER TABLE users ADD COLUMN email VARCHAR(255)"))
             db.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS ix_users_email ON users(email)"))
             migrations_run.append("email")
-        
+
         # Add password_hash column if missing
         if 'password_hash' not in existing_columns:
             db.execute(text("ALTER TABLE users ADD COLUMN password_hash VARCHAR(255)"))
             migrations_run.append("password_hash")
-        
+
         # Add is_active column if missing
         if 'is_active' not in existing_columns:
             db.execute(text("ALTER TABLE users ADD COLUMN is_active BOOLEAN DEFAULT TRUE"))
             migrations_run.append("is_active")
-        
+
         if migrations_run:
-            # Update existing users with default values
+            db.commit()
+            # Update existing users with default values (separate transaction)
             db.execute(text("""
-                UPDATE users 
-                SET 
+                UPDATE users
+                SET
+                    username = COALESCE(username, 'user_' || id),
                     email = COALESCE(email, 'user_' || id || '@pulse.local'),
                     password_hash = COALESCE(password_hash, '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/X4.O/qH8vF/Y5QyHm'),
                     is_active = COALESCE(is_active, TRUE)
-                WHERE email IS NULL OR password_hash IS NULL
+                WHERE username IS NULL OR email IS NULL OR password_hash IS NULL
             """))
             db.commit()
             print(f"[DB] Migrations applied: {', '.join(migrations_run)}")
         else:
             print("[DB] Schema is up-to-date, no migrations needed")
-            
+
     except Exception as e:
         db.rollback()
         print(f"[DB] Warning: Migration check failed: {e}")
@@ -221,29 +244,27 @@ def _ensure_default_user() -> None:
     """
     Ensure default user exists for single-user mode.
     Required for AI recommendation logging in legacy mode.
-    
+
     Note: This creates a fallback user with a hashed default password.
     In production, users should sign up with their own accounts.
     """
-    from models.user import User
-    # Pre-computed bcrypt hash for 'pulse-default-2024' 
+    # Pre-computed bcrypt hash for 'pulse-default-2024'
     # (avoids circular import with core.auth)
     DEFAULT_PASSWORD_HASH = "$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/X4.O/qH8vF/Y5QyHm"
-    
+
     db = SessionLocal()
     try:
-        # Check if default user (id=1) exists
-        default_user = db.query(User).filter(User.id == 1).first()
+        # Use raw SQL to avoid ORM column mismatch issues
+        result = db.execute(text("SELECT id FROM users WHERE id = 1"))
+        default_user = result.fetchone()
+
         if not default_user:
-            # Create default user with placeholder credentials
-            default_user = User(
-                id=1, 
-                email="default@pulse.local",
-                username="default",
-                password_hash=DEFAULT_PASSWORD_HASH,  # password: 'pulse-default-2024'
-                is_active=True
-            )
-            db.add(default_user)
+            # Create default user with placeholder credentials using raw SQL
+            db.execute(text("""
+                INSERT INTO users (id, email, username, password_hash, is_active)
+                VALUES (1, 'default@pulse.local', 'default', :password_hash, TRUE)
+                ON CONFLICT (id) DO NOTHING
+            """), {"password_hash": DEFAULT_PASSWORD_HASH})
             db.commit()
             print("[DB] Created default user (id=1) for AI features")
             print("[DB] NOTE: Default user created with email 'default@pulse.local' - for development only")

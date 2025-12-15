@@ -3,7 +3,7 @@ Task Selector
 Maps action types to concrete tasks from the database.
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, List
 from sqlalchemy.orm import Session
 from sqlalchemy import desc, asc
@@ -119,7 +119,7 @@ class TaskSelector:
         
         # Deadline proximity (higher score for closer deadlines)
         if task.deadline:
-            now = datetime.now()
+            now = datetime.now(timezone.utc)
             hours_until_deadline = (task.deadline - now).total_seconds() / 3600
             
             if hours_until_deadline <= 0:
@@ -147,7 +147,7 @@ class TaskSelector:
         
         # Slight preference for older tasks (avoid starvation)
         if task.created_at:
-            days_old = (datetime.now() - task.created_at).days
+            days_old = (datetime.now(timezone.utc) - task.created_at).days
             score += min(days_old * 0.1, 1.0)  # Max 1 point for age
         
         return score
