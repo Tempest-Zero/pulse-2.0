@@ -1,0 +1,14 @@
+{
+    "name": "pulse-claude-hooks",
+    "version": "1.0.0",
+    "private": true,
+    "description": "Claude hooks for Pulse 2.0",
+    "scripts": {
+        "skill-prompt": "bash skill-activation-prompt.sh",
+        "track-edit": "bash post-tool-use-tracker.sh"
+    },
+    "devDependencies": {
+        "typescript": "^5.0.0",
+        "@types/node": "^20.0.0"
+    }
+}

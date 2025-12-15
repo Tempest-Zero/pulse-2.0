@@ -1,0 +1,22 @@
+{
+    "$comment": "Local settings overrides - DO NOT COMMIT. Copy to settings.local.json and customize.",
+    "hooks": {
+        "UserPromptSubmit": [
+            {
+                "name": "skill-activation-prompt",
+                "enabled": true
+            }
+        ],
+        "PostToolUse": [
+            {
+                "name": "post-tool-use-tracker",
+                "enabled": true
+            }
+        ],
+        "Stop": []
+    },
+    "local": {
+        "debugMode": false,
+        "verboseLogging": false
+    }
+}

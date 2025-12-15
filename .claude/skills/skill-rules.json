@@ -1,0 +1,160 @@
+{
+    "version": "1.0.0",
+    "description": "Skill activation rules for Pulse 2.0 - matches prompts to relevant skills",
+    "skills": [
+        {
+            "id": "pulse-backend-guidelines",
+            "name": "Pulse Backend Guidelines",
+            "path": ".claude/skills/pulse-backend-guidelines/SKILL.md",
+            "enforcement": "suggest",
+            "triggers": {
+                "paths": [
+                    "backend/**/*.py",
+                    "backend/**/*.sql",
+                    "backend/requirements*.txt"
+                ],
+                "keywords": [
+                    "FastAPI",
+                    "uvicorn",
+                    "SQLAlchemy",
+                    "Pydantic",
+                    "Supabase",
+                    "PostgreSQL",
+                    "CORS",
+                    "JWT",
+                    "auth",
+                    "router",
+                    "endpoint",
+                    "API",
+                    "database",
+                    "model",
+                    "crud",
+                    "schema",
+                    "migration",
+                    "bcrypt",
+                    "passlib"
+                ],
+                "intentPatterns": [
+                    "backend.*error",
+                    "api.*fail",
+                    "database.*connect",
+                    "deploy.*backend",
+                    "fix.*router",
+                    "add.*endpoint"
+                ]
+            },
+            "priority": 1
+        },
+        {
+            "id": "pulse-frontend-guidelines",
+            "name": "Pulse Frontend Guidelines",
+            "path": ".claude/skills/pulse-frontend-guidelines/SKILL.md",
+            "enforcement": "suggest",
+            "triggers": {
+                "paths": [
+                    "frontend/**/*.js",
+                    "frontend/**/*.jsx",
+                    "frontend/**/*.ts",
+                    "frontend/**/*.tsx",
+                    "frontend/**/*.mjs",
+                    "frontend/**/*.css"
+                ],
+                "keywords": [
+                    "Next.js",
+                    "React",
+                    "App Router",
+                    "shadcn",
+                    "Tailwind",
+                    "NEXT_PUBLIC",
+                    "fetch",
+                    "useAuth",
+                    "AuthProvider",
+                    "component",
+                    "page",
+                    "layout",
+                    "SSR",
+                    "client",
+                    "build",
+                    "npm",
+                    "pnpm"
+                ],
+                "intentPatterns": [
+                    "frontend.*error",
+                    "build.*fail",
+                    "page.*not.*render",
+                    "deploy.*frontend",
+                    "fix.*component",
+                    "add.*route"
+                ]
+            },
+            "priority": 1
+        },
+        {
+            "id": "pulse-extension-guidelines",
+            "name": "Pulse Extension Guidelines",
+            "path": ".claude/skills/pulse-extension-guidelines/SKILL.md",
+            "enforcement": "suggest",
+            "triggers": {
+                "paths": [
+                    "pulse-extension/**/*.js",
+                    "pulse-extension/**/*.json",
+                    "pulse-extension/**/*.html",
+                    "pulse-extension/**/*.css"
+                ],
+                "keywords": [
+                    "extension",
+                    "manifest",
+                    "service worker",
+                    "MV3",
+                    "content script",
+                    "popup",
+                    "background",
+                    "chrome",
+                    "firefox",
+                    "sync",
+                    "storage",
+                    "permissions"
+                ],
+                "intentPatterns": [
+                    "extension.*error",
+                    "sync.*fail",
+                    "manifest.*issue",
+                    "load.*unpacked"
+                ]
+            },
+            "priority": 1
+        },
+        {
+            "id": "skill-developer",
+            "name": "Skill Developer (Meta)",
+            "path": ".claude/skills/skill-developer/SKILL.md",
+            "enforcement": "suggest",
+            "triggers": {
+                "paths": [
+                    ".claude/**/*"
+                ],
+                "keywords": [
+                    "skill",
+                    "agent",
+                    "hook",
+                    "command",
+                    "claude",
+                    "settings",
+                    "infrastructure"
+                ],
+                "intentPatterns": [
+                    "create.*skill",
+                    "update.*skill",
+                    "add.*agent",
+                    "modify.*hook"
+                ]
+            },
+            "priority": 2
+        }
+    ],
+    "globalSettings": {
+        "maxSuggestionsPerPrompt": 3,
+        "showConfidenceScores": false,
+        "groupByPriority": true
+    }
+}

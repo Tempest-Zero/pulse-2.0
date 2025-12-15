@@ -52,3 +52,7 @@ backend/data/*.db
 # Misc
 *.log
 .vercel
+
+# Claude infrastructure (local only)
+.claude/settings.local.json
+.claude/hooks/state/

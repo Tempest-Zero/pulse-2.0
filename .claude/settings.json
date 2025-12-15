@@ -1,0 +1,52 @@
+{
+    "$schema": "https://claude.ai/settings.schema.json",
+    "version": "1.0.0",
+    "project": "pulse-2.0",
+    "permissions": {
+        "allow": {
+            "read": true,
+            "write": true,
+            "edit": true,
+            "bash": true,
+            "browser": true
+        },
+        "deny": []
+    },
+    "hooks": {
+        "UserPromptSubmit": [
+            {
+                "name": "skill-activation-prompt",
+                "command": "bash .claude/hooks/skill-activation-prompt.sh",
+                "timeout": 5000,
+                "enabled": true
+            }
+        ],
+        "PostToolUse": [
+            {
+                "name": "post-tool-use-tracker",
+                "command": "bash .claude/hooks/post-tool-use-tracker.sh",
+                "matcher": {
+                    "tools": [
+                        "Edit",
+                        "Write",
+                        "MultiEdit",
+                        "Replace"
+                    ]
+                },
+                "timeout": 3000,
+                "enabled": true
+            }
+        ],
+        "Stop": []
+    },
+    "skills": {
+        "enabled": true,
+        "rulesFile": ".claude/skills/skill-rules.json"
+    },
+    "agents": {
+        "directory": ".claude/agents"
+    },
+    "commands": {
+        "directory": ".claude/commands"
+    }
+}
