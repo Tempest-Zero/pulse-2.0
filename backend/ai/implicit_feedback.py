@@ -3,7 +3,7 @@ Implicit Feedback Inferencer
 Infers recommendation outcomes from user behavior patterns.
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, TYPE_CHECKING
 from sqlalchemy.orm import Session
 
@@ -43,8 +43,8 @@ class ImplicitFeedbackInferencer:
             Inferred Outcome enum value
         """
         if current_time is None:
-            current_time = datetime.now()
-        
+            current_time = datetime.now(timezone.utc)
+
         # If explicit outcome already set, use it
         if log.outcome:
             try:
@@ -182,8 +182,8 @@ class ImplicitFeedbackInferencer:
             Number of logs processed
         """
         from models.recommendation_log import RecommendationLog
-        
-        current_time = datetime.now()
+
+        current_time = datetime.now(timezone.utc)
         cutoff_time = current_time - timedelta(hours=min_age_hours)
         
         # Find logs without outcomes that are old enough

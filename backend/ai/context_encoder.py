@@ -3,7 +3,7 @@ Context Encoder
 Converts raw user data and time into UserState for Q-Learning.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 from sqlalchemy.orm import Session
 from sqlalchemy import func
@@ -55,8 +55,8 @@ class ContextEncoder:
             UserState with all features encoded
         """
         if current_time is None:
-            current_time = datetime.now()
-        
+            current_time = datetime.now(timezone.utc)
+
         user_id = AIConfig.get_user_id(user_id)
         
         # Extract temporal features
