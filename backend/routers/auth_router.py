@@ -64,42 +64,54 @@ class UserResponse(BaseModel):
 def signup(request: SignupRequest, db: Session = Depends(get_db)):
     """
     Create a new user account.
-    
+
     Returns an access token on successful signup.
     """
-    # Check if email already exists
-    existing_email = db.query(User).filter(User.email == request.email).first()
-    if existing_email:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email already registered"
+    try:
+        # Check if email already exists
+        existing_email = db.query(User).filter(User.email == request.email).first()
+        if existing_email:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email already registered"
+            )
+
+        # Check if username already exists
+        existing_username = db.query(User).filter(User.username == request.username).first()
+        if existing_username:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Username already taken"
+            )
+
+        # Create new user
+        user = User(
+            email=request.email,
+            username=request.username,
+            password_hash=hash_password(request.password),
         )
-    
-    # Check if username already exists
-    existing_username = db.query(User).filter(User.username == request.username).first()
-    if existing_username:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Username already taken"
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+
+        # Create access token
+        access_token = create_access_token(data={"sub": user.id})
+
+        return TokenResponse(
+            access_token=access_token,
+            user=user.to_dict()
         )
-    
-    # Create new user
-    user = User(
-        email=request.email,
-        username=request.username,
-        password_hash=hash_password(request.password),
-    )
-    db.add(user)
-    db.commit()
-    db.refresh(user)
-    
-    # Create access token
-    access_token = create_access_token(data={"sub": user.id})
-    
-    return TokenResponse(
-        access_token=access_token,
-        user=user.to_dict()
-    )
+    except HTTPException:
+        raise  # Re-raise HTTP exceptions as-is
+    except Exception as e:
+        import traceback
+        error_detail = f"Signup error: {type(e).__name__}: {str(e)}"
+        print(f"[AUTH] {error_detail}")
+        print(f"[AUTH] Traceback: {traceback.format_exc()}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=error_detail
+        )
 
 
 @router.post("/login", response_model=TokenResponse)
@@ -107,36 +119,48 @@ def login(request: LoginRequest, db: Session = Depends(get_db)):
     """
     Authenticate user and return access token.
     """
-    # Find user by email
-    user = db.query(User).filter(User.email == request.email).first()
-    
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid email or password"
+    try:
+        # Find user by email
+        user = db.query(User).filter(User.email == request.email).first()
+
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid email or password"
+            )
+
+        # Verify password
+        if not verify_password(request.password, user.password_hash):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid email or password"
+            )
+
+        # Check if account is active
+        if not user.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Account is inactive"
+            )
+
+        # Create access token
+        access_token = create_access_token(data={"sub": user.id})
+
+        return TokenResponse(
+            access_token=access_token,
+            user=user.to_dict()
         )
-    
-    # Verify password
-    if not verify_password(request.password, user.password_hash):
+    except HTTPException:
+        raise  # Re-raise HTTP exceptions as-is
+    except Exception as e:
+        import traceback
+        error_detail = f"Login error: {type(e).__name__}: {str(e)}"
+        print(f"[AUTH] {error_detail}")
+        print(f"[AUTH] Traceback: {traceback.format_exc()}")
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid email or password"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=error_detail
         )
-    
-    # Check if account is active
-    if not user.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Account is inactive"
-        )
-    
-    # Create access token
-    access_token = create_access_token(data={"sub": user.id})
-    
-    return TokenResponse(
-        access_token=access_token,
-        user=user.to_dict()
-    )
 
 
 @router.post("/login/form", response_model=TokenResponse)
