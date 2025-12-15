@@ -201,24 +201,25 @@ def seed_moods(db: Session, user_id: int) -> list[MoodEntry]:
     now = datetime.now(timezone.utc)
 
     # Mood entries over the past week with realistic patterns
+    # Valid moods: calm, energized, focused, tired, happy, stressed, anxious, sad, excited, overwhelmed, exhausted, neutral, content, okay
     moods_data = [
         # Today
-        {"mood": "focused", "energy": 7, "notes": "Good morning, ready to tackle tasks!", "timestamp": now - timedelta(hours=2)},
+        {"mood": "focused", "notes": "Good morning, ready to tackle tasks!", "timestamp": now - timedelta(hours=2)},
         # Yesterday
-        {"mood": "calm", "energy": 6, "notes": "Productive afternoon", "timestamp": now - timedelta(days=1, hours=4)},
-        {"mood": "tired", "energy": 3, "notes": "Long day, need rest", "timestamp": now - timedelta(days=1, hours=10)},
+        {"mood": "calm", "notes": "Productive afternoon", "timestamp": now - timedelta(days=1, hours=4)},
+        {"mood": "tired", "notes": "Long day, need rest", "timestamp": now - timedelta(days=1, hours=10)},
         # 2 days ago
-        {"mood": "energetic", "energy": 8, "notes": "Great start to the day!", "timestamp": now - timedelta(days=2, hours=1)},
-        {"mood": "stressed", "energy": 4, "notes": "Deadline pressure", "timestamp": now - timedelta(days=2, hours=6)},
+        {"mood": "energized", "notes": "Great start to the day!", "timestamp": now - timedelta(days=2, hours=1)},
+        {"mood": "stressed", "notes": "Deadline pressure", "timestamp": now - timedelta(days=2, hours=6)},
         # 3 days ago
-        {"mood": "happy", "energy": 7, "notes": "Completed major milestone", "timestamp": now - timedelta(days=3, hours=3)},
+        {"mood": "happy", "notes": "Completed major milestone", "timestamp": now - timedelta(days=3, hours=3)},
         # 4 days ago
-        {"mood": "neutral", "energy": 5, "notes": "Regular workday", "timestamp": now - timedelta(days=4, hours=2)},
+        {"mood": "neutral", "notes": "Regular workday", "timestamp": now - timedelta(days=4, hours=2)},
         # 5 days ago
-        {"mood": "anxious", "energy": 4, "notes": "Upcoming presentation", "timestamp": now - timedelta(days=5, hours=5)},
-        {"mood": "relieved", "energy": 6, "notes": "Presentation went well!", "timestamp": now - timedelta(days=5, hours=8)},
+        {"mood": "anxious", "notes": "Upcoming presentation", "timestamp": now - timedelta(days=5, hours=5)},
+        {"mood": "content", "notes": "Presentation went well!", "timestamp": now - timedelta(days=5, hours=8)},
         # 6 days ago
-        {"mood": "motivated", "energy": 8, "notes": "New week, fresh start", "timestamp": now - timedelta(days=6, hours=1)},
+        {"mood": "excited", "notes": "New week, fresh start", "timestamp": now - timedelta(days=6, hours=1)},
     ]
 
     moods = []
@@ -234,30 +235,32 @@ def seed_moods(db: Session, user_id: int) -> list[MoodEntry]:
 
 def seed_schedule(db: Session, user_id: int) -> list[ScheduleBlock]:
     """Create sample schedule blocks."""
-    existing_count = db.query(ScheduleBlock).filter(ScheduleBlock.user_id == user_id).count()
+    # ScheduleBlock doesn't have user_id - it's global
+    existing_count = db.query(ScheduleBlock).count()
     if existing_count > 0:
-        print(f"[SEED] Schedule blocks already exist for user ({existing_count} blocks)")
+        print(f"[SEED] Schedule blocks already exist ({existing_count} blocks)")
         return []
 
+    # Valid block_type values: 'fixed', 'focus', 'break', 'task'
     schedule_data = [
         # Morning routine
-        {"title": "Morning Review", "start": 9.0, "duration": 0.5, "block_type": "routine"},
+        {"title": "Morning Review", "start": 9.0, "duration": 0.5, "block_type": "fixed"},
         {"title": "Deep Work Block", "start": 9.5, "duration": 2.0, "block_type": "focus"},
         # Midday
         {"title": "Lunch Break", "start": 12.0, "duration": 1.0, "block_type": "break"},
-        {"title": "Team Standup", "start": 13.0, "duration": 0.5, "block_type": "meeting"},
+        {"title": "Team Standup", "start": 13.0, "duration": 0.5, "block_type": "fixed"},
         {"title": "Collaborative Work", "start": 13.5, "duration": 2.0, "block_type": "task"},
         # Afternoon
         {"title": "Break / Walk", "start": 15.5, "duration": 0.5, "block_type": "break"},
-        {"title": "Email & Admin", "start": 16.0, "duration": 1.0, "block_type": "admin"},
-        {"title": "Learning Time", "start": 17.0, "duration": 1.0, "block_type": "learning"},
+        {"title": "Email & Admin", "start": 16.0, "duration": 1.0, "block_type": "task"},
+        {"title": "Learning Time", "start": 17.0, "duration": 1.0, "block_type": "focus"},
         # Evening
-        {"title": "Day Wrap-up", "start": 18.0, "duration": 0.5, "block_type": "routine"},
+        {"title": "Day Wrap-up", "start": 18.0, "duration": 0.5, "block_type": "fixed"},
     ]
 
     blocks = []
     for data in schedule_data:
-        block = ScheduleBlock(user_id=user_id, **data)
+        block = ScheduleBlock(**data)
         db.add(block)
         blocks.append(block)
 
@@ -268,54 +271,61 @@ def seed_schedule(db: Session, user_id: int) -> list[ScheduleBlock]:
 
 def seed_reflections(db: Session, user_id: int) -> list[Reflection]:
     """Create sample reflections."""
-    existing_count = db.query(Reflection).filter(Reflection.user_id == user_id).count()
+    # Reflections use date as unique key, not user_id
+    existing_count = db.query(Reflection).count()
     if existing_count > 0:
-        print(f"[SEED] Reflections already exist for user ({existing_count} reflections)")
+        print(f"[SEED] Reflections already exist ({existing_count} reflections)")
         return []
 
-    now = datetime.now(timezone.utc)
+    today = datetime.now(timezone.utc).date()
 
+    # Reflection model fields: date, mood_score (1-5), distractions, note, completed_tasks, total_tasks
     reflections_data = [
         {
-            "content": "Today was productive! I managed to finish the API integration ahead of schedule. The key was breaking the task into smaller chunks and taking regular breaks.",
-            "mood_score": 8,
-            "productivity_score": 9,
-            "reflection_type": "daily",
-            "created_at": now - timedelta(days=1),
+            "date": today - timedelta(days=1),
+            "mood_score": 4,  # 1-5 scale (4 = energized)
+            "note": "Today was productive! I managed to finish the API integration ahead of schedule. The key was breaking the task into smaller chunks and taking regular breaks.",
+            "distractions": ["social_media", "notifications"],
+            "completed_tasks": 5,
+            "total_tasks": 6,
         },
         {
-            "content": "Struggled with focus today. Too many interruptions from Slack. Need to set better boundaries and use Do Not Disturb mode during deep work sessions.",
-            "mood_score": 5,
-            "productivity_score": 4,
-            "reflection_type": "daily",
-            "created_at": now - timedelta(days=2),
+            "date": today - timedelta(days=2),
+            "mood_score": 2,  # 1-5 scale (2 = tired)
+            "note": "Struggled with focus today. Too many interruptions from Slack. Need to set better boundaries and use Do Not Disturb mode during deep work sessions.",
+            "distractions": ["meetings", "slack", "emails"],
+            "completed_tasks": 2,
+            "total_tasks": 5,
         },
         {
-            "content": "Great week overall! Completed 3 major tasks and learned a new framework. Areas to improve: better time estimation and saying no to scope creep.",
-            "mood_score": 7,
-            "productivity_score": 8,
-            "reflection_type": "weekly",
-            "created_at": now - timedelta(days=3),
-        },
-        {
-            "content": "The morning routine is really helping. Waking up earlier and doing a quick review of tasks sets a positive tone for the whole day.",
-            "mood_score": 8,
-            "productivity_score": 7,
-            "reflection_type": "daily",
-            "created_at": now - timedelta(days=4),
-        },
-        {
-            "content": "Need to work on task prioritization. Spent too much time on low-priority items while important deadlines approached.",
+            "date": today - timedelta(days=3),
             "mood_score": 4,
-            "productivity_score": 5,
-            "reflection_type": "daily",
-            "created_at": now - timedelta(days=5),
+            "note": "Great progress! Completed 3 major tasks and learned a new framework. Areas to improve: better time estimation.",
+            "distractions": ["youtube"],
+            "completed_tasks": 4,
+            "total_tasks": 4,
+        },
+        {
+            "date": today - timedelta(days=4),
+            "mood_score": 5,  # 1-5 scale (5 = very energized)
+            "note": "The morning routine is really helping. Waking up earlier and doing a quick review of tasks sets a positive tone for the whole day.",
+            "distractions": [],
+            "completed_tasks": 6,
+            "total_tasks": 6,
+        },
+        {
+            "date": today - timedelta(days=5),
+            "mood_score": 2,
+            "note": "Need to work on task prioritization. Spent too much time on low-priority items while important deadlines approached.",
+            "distractions": ["procrastination", "social_media"],
+            "completed_tasks": 1,
+            "total_tasks": 4,
         },
     ]
 
     reflections = []
     for data in reflections_data:
-        reflection = Reflection(user_id=user_id, **data)
+        reflection = Reflection(**data)
         db.add(reflection)
         reflections.append(reflection)
 
