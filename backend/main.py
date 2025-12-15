@@ -4,6 +4,7 @@ FastAPI application entry point.
 """
 
 import os
+import asyncio
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -13,9 +14,19 @@ from fastapi.middleware.cors import CORSMiddleware
 from models import init_db, test_connection
 from routers import tasks_router, schedule_router, reflections_router, mood_router, ai_router, extension_router, auth_router
 
+# Background tasks
+from tasks.background import (
+    run_startup_tasks,
+    run_shutdown_tasks,
+    background_runner,
+)
+
 # Track database status
 db_initialized = False
 db_error = None
+
+# Track background task
+_background_task = None
 
 
 @asynccontextmanager
@@ -24,7 +35,7 @@ async def lifespan(app: FastAPI):
     Lifespan context manager for startup/shutdown events.
     Database initialization happens here so the app can start even if DB fails.
     """
-    global db_initialized, db_error
+    global db_initialized, db_error, _background_task
     
     print("[STARTUP] Initializing PULSE API...")
     
@@ -39,12 +50,48 @@ async def lifespan(app: FastAPI):
         print(f"[STARTUP] WARNING: Database initialization failed: {e}")
         print("[STARTUP] App will continue without database - health check will show degraded status")
     
+    # Run startup tasks (create default user, load cached agents)
+    if db_initialized:
+        try:
+            run_startup_tasks()
+            print("[STARTUP] Startup tasks completed")
+        except Exception as e:
+            print(f"[STARTUP] WARNING: Startup tasks failed: {e}")
+    
+    # Start background task runner for periodic tasks
+    # (model persistence every 5 min, outcome inference every 30 min)
+    if db_initialized:
+        try:
+            background_runner._running = True
+            _background_task = asyncio.create_task(background_runner._run_periodic_tasks())
+            print("[STARTUP] Background task runner started")
+        except Exception as e:
+            print(f"[STARTUP] WARNING: Background runner failed to start: {e}")
+    
     print("[STARTUP] PULSE API ready to serve requests")
     
     yield  # App runs here
     
     # Shutdown
     print("[SHUTDOWN] PULSE API shutting down...")
+    
+    # Stop background task runner
+    if _background_task:
+        background_runner._running = False
+        _background_task.cancel()
+        try:
+            await _background_task
+        except asyncio.CancelledError:
+            pass
+        print("[SHUTDOWN] Background task runner stopped")
+    
+    # Run shutdown tasks (persist all agent models)
+    if db_initialized:
+        try:
+            run_shutdown_tasks()
+            print("[SHUTDOWN] Shutdown tasks completed")
+        except Exception as e:
+            print(f"[SHUTDOWN] WARNING: Shutdown tasks failed: {e}")
 
 
 # Create FastAPI app with lifespan
@@ -107,5 +154,6 @@ def health_check():
         "status": "healthy" if db_connected else "degraded",
         "api": "ok",
         "database": "connected" if db_connected else "disconnected",
+        "background_tasks": "running" if _background_task and not _background_task.done() else "stopped",
         "error": db_error if db_error else None
     }

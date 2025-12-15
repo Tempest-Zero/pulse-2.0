@@ -1,0 +1,183 @@
+{
+    "title": "CLAUDE.md Project Memory Files Implementation Report",
+    "version": "1.0",
+    "created": "2025-12-15T18:25:00+05:00",
+    "purpose": "Document the AI agent project memory optimization implemented for Pulse 2.0",
+    "summary": {
+        "objective": "Create accurate, repo-specific project memory files (CLAUDE.md) that improve agentic coding consistency and reduce context loss across sessions",
+        "files_created": 5,
+        "total_lines_added": 491,
+        "commit": "3866602 - docs: add CLAUDE.md project memory files for AI agents",
+        "branch": "template-shift"
+    },
+    "files_created": [
+        {
+            "path": "CLAUDE.md",
+            "purpose": "Root project memory - repo map, integration points, dev-docs workflow",
+            "key_content": [
+                "Monorepo structure map (backend/frontend/extension/docs)",
+                "Pointers to component-specific CLAUDE.md files",
+                "Integration points table (Frontend→Backend, Extension→Backend, Backend→DB)",
+                "Deployment info (Railway URLs, Supabase DB)",
+                "Dev-docs workflow pattern for multi-session tasks",
+                "Common cross-component issues table"
+            ]
+        },
+        {
+            "path": "backend/CLAUDE.md",
+            "purpose": "Backend-specific commands, structure, and gotchas",
+            "key_content": [
+                "Folder structure (routers/models/crud/schema/ai/tests/migrations)",
+                "Local dev command: uvicorn main:app --reload --host 0.0.0.0 --port 8000",
+                "Test command: pytest",
+                "Production command (from railway.json): /app/venv/bin/uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}",
+                "Environment variables table (DATABASE_URL, CORS_ORIGINS, JWT_SECRET_KEY)",
+                "Database notes (SQLAlchemy 2.0, Supabase session pooler port 6543)",
+                "Key endpoints table (/health, /auth/*, /ai/recommendation, /tasks)",
+                "Common gotchas (CORS, auth dependencies, DB connection issues)"
+            ],
+            "verified_from": [
+                "backend/Procfile",
+                "backend/railway.json",
+                "backend/nixpacks.toml",
+                "backend/.env.example",
+                "backend/requirements.txt"
+            ]
+        },
+        {
+            "path": "frontend/CLAUDE.md",
+            "purpose": "Frontend-specific commands, structure, and gotchas",
+            "key_content": [
+                "Folder structure (app routes, components, lib, hooks)",
+                "npm scripts: dev, build, start, lint (from package.json)",
+                "Environment variable: NEXT_PUBLIC_API_URL",
+                "API config location: lib/api/config.js",
+                "Auth context location: lib/auth-context.js",
+                "Route structure table (7 routes)",
+                "Common gotchas (SSR with auth hooks, CORS errors, wrong API URL)"
+            ],
+            "verified_from": [
+                "frontend/package.json",
+                "frontend/.env.production",
+                "frontend/lib/api/config.js",
+                "frontend/lib/auth-context.js",
+                "frontend/app/ directory structure"
+            ]
+        },
+        {
+            "path": "pulse-extension/CLAUDE.md",
+            "purpose": "Extension-specific loading instructions and configuration",
+            "key_content": [
+                "Folder structure (background, content, popup, options, lib)",
+                "Chrome loading: chrome://extensions → Load unpacked",
+                "Firefox loading: about:debugging → Load Temporary Add-on",
+                "Backend endpoint config: lib/sync-scheduler.js line 12",
+                "Current endpoint: https://back-end-304.up.railway.app/api/v1/extension",
+                "Key files table",
+                "Manifest V3 notes (service worker lifecycle, chrome.alarms)",
+                "Common gotchas (localhost hardcoding, service worker termination, consent)"
+            ],
+            "verified_from": [
+                "pulse-extension/manifest.json",
+                "pulse-extension/lib/sync-scheduler.js",
+                "pulse-extension/README.md"
+            ]
+        },
+        {
+            "path": "dev/README.md",
+            "purpose": "Dev-docs workflow documentation",
+            "key_content": [
+                "When to use: tasks requiring 10+ tool calls or spanning multiple sessions",
+                "Structure: dev/active/<task-name>/ with plan.md, context.md, tasks.md",
+                "Lifecycle: Start → During → Complete",
+                "Example folder structure",
+                "Best practices"
+            ]
+        }
+    ],
+    "discovery_phase": {
+        "description": "All commands, env vars, and paths were verified from actual repo files",
+        "files_inspected": [
+            "backend/Procfile",
+            "backend/railway.json",
+            "backend/nixpacks.toml",
+            "backend/.env.example",
+            "backend/requirements.txt",
+            "backend/main.py",
+            "frontend/package.json",
+            "frontend/.env.production",
+            "frontend/lib/api/config.js",
+            "pulse-extension/lib/sync-scheduler.js",
+            "pulse-extension/README.md"
+        ],
+        "key_discoveries": [
+            {
+                "component": "backend",
+                "discovery": "Production uses virtual environment path: /app/venv/bin/uvicorn",
+                "source": "railway.json line 7"
+            },
+            {
+                "component": "backend",
+                "discovery": "Health check path is /health with 100s timeout",
+                "source": "railway.json lines 8-9"
+            },
+            {
+                "component": "frontend",
+                "discovery": "Only 4 npm scripts defined: dev, build, start, lint (no test script)",
+                "source": "package.json lines 9-14"
+            },
+            {
+                "component": "frontend",
+                "discovery": "API base URL env var is NEXT_PUBLIC_API_URL",
+                "source": ".env.production line 5"
+            },
+            {
+                "component": "extension",
+                "discovery": "Backend endpoint hardcoded in SYNC_CONFIG.API_ENDPOINT",
+                "source": "lib/sync-scheduler.js line 12"
+            },
+            {
+                "component": "extension",
+                "discovery": "Already configured for production: https://back-end-304.up.railway.app",
+                "source": "lib/sync-scheduler.js line 12"
+            }
+        ]
+    },
+    "accuracy_compliance": {
+        "rules_followed": [
+            "No invented commands - all from actual scripts/configs",
+            "No invented env var names - verified from .env files and code",
+            "No invented file paths - verified by listing directories",
+            "No assumptions from other stacks (no Prisma/MUI/TanStack guesses)",
+            "Marked TODOs only where truly uncertain (none needed)"
+        ],
+        "verification_methods": [
+            "grep_search for specific patterns",
+            "view_file for config contents",
+            "list_dir for folder structure",
+            "run_command for package.json inspection"
+        ]
+    },
+    "benefits": {
+        "for_ai_agents": [
+            "Reduced context loss across sessions",
+            "Accurate commands without guessing",
+            "Clear pointers to component-specific docs",
+            "Known gotchas prevent common mistakes"
+        ],
+        "for_developers": [
+            "Onboarding reference for repo structure",
+            "Quick command lookup",
+            "Integration points documented",
+            "Troubleshooting gotchas collected"
+        ]
+    },
+    "acceptance_checklist": {
+        "all_files_created": true,
+        "all_commands_verified": true,
+        "root_routes_to_subprojects": true,
+        "component_files_tailored": true,
+        "dev_docs_workflow_described": true,
+        "no_stack_assumptions": true
+    }
+}

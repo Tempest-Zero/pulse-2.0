@@ -1,0 +1,390 @@
+{
+    "title": "Pulse 2.0 Repository Audit & Modularity Report",
+    "version": "1.0",
+    "created": "2025-12-15T18:30:00+05:00",
+    "executive_summary": {
+        "total_issues_found": 15,
+        "critical": 2,
+        "medium": 6,
+        "low": 7,
+        "estimated_space_waste": "~2MB+ in tracked files, ~500KB+ untracked",
+        "key_findings": [
+            "Duplicate layout files (layout.jsx AND layout.tsx) - only one is used",
+            "SQLite-based migration script obsolete (now using PostgreSQL)",
+            "Debug/inspection scripts committed to repo",
+            "Local SQLite databases in data/ folder",
+            "Generated HTML coverage reports in repo",
+            "tasks/ module not imported or used anywhere",
+            "Outdated PROJECT_REPORT.html references SQLite stack"
+        ]
+    },
+    "unused_systems": [
+        {
+            "category": "CRITICAL",
+            "item": "Duplicate Layout Files",
+            "paths": [
+                "frontend/app/layout.jsx",
+                "frontend/app/layout.tsx"
+            ],
+            "details": {
+                "issue": "Both layout.jsx and layout.tsx exist. Only one is used by Next.js.",
+                "layout_jsx": {
+                    "lines": 47,
+                    "features": [
+                        "AuthProvider wrapper",
+                        "Toaster",
+                        "Analytics",
+                        "dark mode"
+                    ],
+                    "metadata_title": "Pulse – Your AI Productivity Coach"
+                },
+                "layout_tsx": {
+                    "lines": 46,
+                    "features": [
+                        "Analytics only",
+                        "No AuthProvider",
+                        "No dark mode"
+                    ],
+                    "metadata_title": "v0 App",
+                    "description": "Created with v0"
+                },
+                "verdict": "layout.tsx appears to be the OBSOLETE v0 template. layout.jsx is the actual used file.",
+                "action": "DELETE frontend/app/layout.tsx"
+            },
+            "space_saved": "1KB"
+        },
+        {
+            "category": "CRITICAL",
+            "item": "SQLite Migration Script (Obsolete)",
+            "paths": [
+                "backend/migrations/migrate_for_ai.py"
+            ],
+            "details": {
+                "issue": "This migration script uses SQLite-specific commands but production uses PostgreSQL",
+                "evidence": [
+                    "Uses sqlite3 module directly",
+                    "Uses PRAGMA table_info (SQLite-specific)",
+                    "Hardcoded path: data/pulse.db",
+                    "Production now uses Supabase PostgreSQL"
+                ],
+                "current_migration": "001_add_auth_columns.sql (PostgreSQL-compatible)",
+                "verdict": "Obsolete after PostgreSQL migration"
+            },
+            "action": "DELETE or move to docs/archive/",
+            "space_saved": "6KB"
+        },
+        {
+            "category": "MEDIUM",
+            "item": "Background Tasks Module (Unused)",
+            "paths": [
+                "backend/tasks/__init__.py",
+                "backend/tasks/background.py"
+            ],
+            "details": {
+                "issue": "tasks/ module is not imported anywhere in the codebase",
+                "grep_results": "No imports of 'from tasks import' found",
+                "exports": [
+                    "persist_agent_models_task",
+                    "infer_pending_outcomes_task",
+                    "run_startup_tasks",
+                    "run_shutdown_tasks",
+                    "background_runner"
+                ],
+                "likely_intent": "Background job scheduling (AI model persistence, feedback inference)",
+                "verdict": "Either integrate into main.py lifespan or remove"
+            },
+            "action": "INTEGRATE or DELETE",
+            "space_saved": "4.5KB"
+        },
+        {
+            "category": "MEDIUM",
+            "item": "Debug/Inspection Scripts",
+            "paths": [
+                "backend/debug_tests.py",
+                "backend/inspect_db.py",
+                "backend/tests/debug_task_create.py"
+            ],
+            "details": {
+                "debug_tests_py": {
+                    "purpose": "Debug test runner with verbose output",
+                    "usage": "Development only, ad-hoc debugging"
+                },
+                "inspect_db_py": {
+                    "purpose": "SQLite schema inspector",
+                    "issue": "Uses sqlite3 module - obsolete with PostgreSQL",
+                    "verdict": "Completely obsolete"
+                },
+                "debug_task_create_py": {
+                    "purpose": "Test task creation debugging",
+                    "location": "In tests/ folder but not a real test"
+                }
+            },
+            "action": "DELETE all three files",
+            "space_saved": "4.2KB"
+        },
+        {
+            "category": "MEDIUM",
+            "item": "Local SQLite Databases",
+            "paths": [
+                "backend/data/pulse.db",
+                "backend/data/pulse.db.backup",
+                "backend/data/test.db"
+            ],
+            "details": {
+                "issue": "Local development databases committed or present in repo",
+                "sizes": {
+                    "pulse.db": "164KB",
+                    "pulse.db.backup": "86KB",
+                    "test.db": "197KB"
+                },
+                "gitignore_status": "Should be ignored by backend/.gitignore but may have been committed before ignore rule"
+            },
+            "action": "Remove from git tracking: git rm --cached backend/data/*.db",
+            "space_saved": "447KB"
+        },
+        {
+            "category": "MEDIUM",
+            "item": "HTML Coverage Reports",
+            "paths": [
+                "backend/htmlcov/"
+            ],
+            "details": {
+                "issue": "pytest-cov HTML output committed to repo",
+                "file_count": 48,
+                "total_size": "~800KB+ estimated",
+                "files_include": [
+                    "index.html",
+                    "function_index.html",
+                    "class_index.html",
+                    "*.html for each source file"
+                ],
+                "gitignore_status": "Listed in .gitignore but may have been committed before"
+            },
+            "action": "Remove from git tracking: git rm -r --cached backend/htmlcov/",
+            "space_saved": "~800KB"
+        },
+        {
+            "category": "MEDIUM",
+            "item": "Outdated PROJECT_REPORT.html",
+            "paths": [
+                "backend/PROJECT_REPORT.html"
+            ],
+            "details": {
+                "issue": "References obsolete tech stack",
+                "obsolete_references": [
+                    "SQLite 3.x as Database (dev) - now using PostgreSQL",
+                    "Python 3.13 - requirements use 3.11",
+                    "References migrate_for_ai.py which is SQLite-based"
+                ],
+                "size": "15.8KB"
+            },
+            "action": "UPDATE or DELETE",
+            "space_saved": "15.8KB if deleted"
+        },
+        {
+            "category": "LOW",
+            "item": "AI Documentation Images",
+            "paths": [
+                "backend/docs/ai_architecture.png",
+                "backend/docs/learning_phases.png",
+                "backend/docs/reward_system.png",
+                "backend/docs/state_space.png"
+            ],
+            "details": {
+                "issue": "Large PNG files in backend/docs/",
+                "total_size": "2.1MB",
+                "used_in": "Likely AI_MODULE_REPORT.md or similar documentation",
+                "verdict": "Keep if documentation is valuable, but consider compression"
+            },
+            "action": "KEEP but consider compressing or moving to external hosting",
+            "space_saved": "~1MB if compressed"
+        },
+        {
+            "category": "LOW",
+            "item": ".next Build Folder",
+            "paths": [
+                "frontend/.next/"
+            ],
+            "details": {
+                "issue": "Next.js build output in working directory",
+                "gitignore_status": "Should be ignored by root .gitignore",
+                "contents": [
+                    "server/, static/, cache/, types/",
+                    "Build manifests and traces"
+                ]
+            },
+            "action": "Verify not tracked in git",
+            "space_saved": "Local only, not in git"
+        },
+        {
+            "category": "LOW",
+            "item": "__pycache__ Folders",
+            "paths": [
+                "backend/__pycache__/",
+                "backend/ai/__pycache__/",
+                "backend/crud/__pycache__/",
+                "backend/migrations/__pycache__/",
+                "backend/models/__pycache__/",
+                "backend/routers/__pycache__/",
+                "backend/schema/__pycache__/",
+                "backend/tests/__pycache__/"
+            ],
+            "details": {
+                "issue": "8 __pycache__ directories found",
+                "gitignore_status": "Should be ignored",
+                "count": 8
+            },
+            "action": "Verify not tracked in git",
+            "space_saved": "Local only if not tracked"
+        },
+        {
+            "category": "LOW",
+            "item": "run_tests.py (Redundant)",
+            "paths": [
+                "backend/run_tests.py"
+            ],
+            "details": {
+                "issue": "Custom test runner when pytest can be run directly",
+                "purpose": "Wraps pytest with custom options",
+                "verdict": "Nice-to-have but not essential"
+            },
+            "action": "OPTIONAL: Keep or delete",
+            "space_saved": "4KB"
+        }
+    ],
+    "modularity_analysis": {
+        "overall_score": "7/10",
+        "summary": "Generally well-modularized with clear separation of concerns. Some areas need improvement.",
+        "strengths": [
+            {
+                "area": "Backend Architecture",
+                "score": "9/10",
+                "details": "Excellent separation: routers/ (API), models/ (ORM), crud/ (DB ops), schema/ (validation), ai/ (ML)"
+            },
+            {
+                "area": "AI Module",
+                "score": "9/10",
+                "details": "Highly modular with single-responsibility files: agent.py, state.py, actions.py, rule_engine.py, etc."
+            },
+            {
+                "area": "Frontend Components",
+                "score": "8/10",
+                "details": "Clean component structure with ui/ for primitives, separate auth/navigation components"
+            },
+            {
+                "area": "Extension Architecture",
+                "score": "8/10",
+                "details": "Good separation: lib/ for utilities, background/ for service worker, content/ for injection"
+            }
+        ],
+        "weaknesses": [
+            {
+                "area": "Duplicate Layouts",
+                "score": "2/10",
+                "details": "Both layout.jsx and layout.tsx exist - confusing and error-prone",
+                "recommendation": "Delete layout.tsx"
+            },
+            {
+                "area": "Dead Code Detection",
+                "score": "4/10",
+                "details": "tasks/ module exists but is never imported, SQLite migration still present",
+                "recommendation": "Regular dead code audits"
+            },
+            {
+                "area": "Migration Strategy",
+                "score": "5/10",
+                "details": "Two migration approaches: Python SQLite script AND SQL files. Inconsistent.",
+                "recommendation": "Standardize on SQL migrations for PostgreSQL"
+            },
+            {
+                "area": "Generated Artifacts",
+                "score": "3/10",
+                "details": "Coverage reports, compiled Python, build folders mixed with source",
+                "recommendation": "Stronger .gitignore enforcement"
+            }
+        ],
+        "component_coupling": {
+            "backend_modules": {
+                "coupling": "LOW (Good)",
+                "details": "Routers depend on crud/models, but not on each other. ai/ is standalone."
+            },
+            "frontend_lib": {
+                "coupling": "MEDIUM",
+                "details": "auth-context.js depends on api/config.js. Could extract token storage."
+            },
+            "extension_lib": {
+                "coupling": "LOW (Good)",
+                "details": "Each lib file is independent. sync-scheduler orchestrates others."
+            }
+        }
+    },
+    "cleanup_recommendations": {
+        "immediate_actions": [
+            {
+                "priority": 1,
+                "action": "Delete frontend/app/layout.tsx",
+                "reason": "Duplicate and obsolete v0 template",
+                "command": "git rm frontend/app/layout.tsx"
+            },
+            {
+                "priority": 2,
+                "action": "Remove SQLite databases from tracking",
+                "reason": "Local dev data, now using PostgreSQL",
+                "command": "git rm --cached backend/data/*.db backend/data/*.backup"
+            },
+            {
+                "priority": 3,
+                "action": "Remove htmlcov/ from tracking",
+                "reason": "Generated test coverage reports",
+                "command": "git rm -r --cached backend/htmlcov/"
+            },
+            {
+                "priority": 4,
+                "action": "Delete obsolete debug/migration scripts",
+                "reason": "SQLite-specific, no longer needed",
+                "commands": [
+                    "git rm backend/inspect_db.py",
+                    "git rm backend/debug_tests.py",
+                    "git rm backend/tests/debug_task_create.py",
+                    "git rm backend/migrations/migrate_for_ai.py"
+                ]
+            }
+        ],
+        "follow_up_actions": [
+            {
+                "action": "Decide on tasks/ module",
+                "options": [
+                    "Integrate background tasks into main.py lifespan",
+                    "Delete if not needed"
+                ]
+            },
+            {
+                "action": "Update PROJECT_REPORT.html",
+                "options": [
+                    "Update to reflect PostgreSQL stack",
+                    "Delete if AI_MODULE_REPORT.md is sufficient"
+                ]
+            },
+            {
+                "action": "Compress or move AI doc images",
+                "details": "2.1MB of PNGs in backend/docs/"
+            }
+        ],
+        "gitignore_improvements": {
+            "ensure_ignored": [
+                "backend/data/*.db",
+                "backend/data/*.backup",
+                "backend/htmlcov/",
+                "frontend/.next/",
+                "**/__pycache__/"
+            ]
+        }
+    },
+    "space_savings_summary": {
+        "if_all_actions_taken": {
+            "from_git_history": "~1.3MB+ (databases, htmlcov, unused scripts)",
+            "from_working_directory": "~2.5MB+ (including local databases)",
+            "note": "Some may require git filter-branch or BFG to fully remove from history"
+        }
+    }
+}
