@@ -3,7 +3,7 @@ AI Router
 FastAPI endpoints for AI recommendations.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
@@ -177,7 +177,7 @@ def submit_feedback(
     
     # Update log
     log.outcome = outcome.value
-    log.outcome_recorded_at = datetime.now()
+    log.outcome_recorded_at = datetime.now(timezone.utc)
     
     if feedback.rating:
         log.user_rating = feedback.rating
@@ -413,8 +413,8 @@ def _update_previous_recommendation(db: Session, user_id: int) -> None:
     ).order_by(RecommendationLog.timestamp.desc()).first()
     
     if prev_log:
-        prev_log.next_recommendation_at = datetime.now()
+        prev_log.next_recommendation_at = datetime.now(timezone.utc)
         prev_log.activity_gap_seconds = int(
-            (datetime.now() - prev_log.timestamp).total_seconds()
+            (datetime.now(timezone.utc) - prev_log.timestamp).total_seconds()
         )
         db.commit()
