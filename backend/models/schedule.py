@@ -4,7 +4,7 @@ SQLAlchemy ORM model for schedule blocks.
 """
 
 from typing import Any
-from sqlalchemy import Column, Integer, String, Float, DateTime
+from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey
 from sqlalchemy.sql import func
 from .base import Base
 
@@ -12,9 +12,11 @@ from .base import Base
 class ScheduleBlock(Base):
     """
     ScheduleBlock model representing a time block in the schedule.
-    
+
     Attributes:
         id: Primary key
+        user_id: Owner user (for multi-user support)
+        task_id: Associated task (if block_type is 'task')
         title: Block title/description
         start: Start hour (e.g., 9.5 for 9:30 AM)
         duration: Duration in hours
@@ -25,6 +27,8 @@ class ScheduleBlock(Base):
     __tablename__ = "schedule_blocks"
 
     id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False, index=True)
+    task_id = Column(Integer, ForeignKey('tasks.id'), nullable=True, index=True)
     title = Column(String(255), nullable=False)
     start = Column(Float, nullable=False)  # Hour of day
     duration = Column(Float, nullable=False)  # Hours
@@ -39,6 +43,8 @@ class ScheduleBlock(Base):
         """Convert model to dictionary (for API responses)."""
         return {
             "id": self.id,
+            "userId": self.user_id,
+            "taskId": self.task_id,
             "title": self.title,
             "start": self.start,
             "duration": self.duration,

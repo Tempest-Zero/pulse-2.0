@@ -102,7 +102,7 @@ class HybridRecommender:
         task_id = None
         task_title = None
         if action in (ActionType.DEEP_FOCUS, ActionType.LIGHT_TASK):
-            task = self.task_selector.select_task(action, state, db)
+            task = self.task_selector.select_task(action, state, db, user_id)
             if task:
                 task_id = task.id
                 task_title = task.title

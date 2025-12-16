@@ -14,6 +14,7 @@ class ScheduleBlockCreate(BaseModel):
     start: float = Field(..., ge=0, le=24)
     duration: float = Field(..., ge=0.25, le=8.0)
     block_type: str = Field(default="fixed", pattern="^(fixed|focus|break|task)$")
+    task_id: Optional[int] = None
 
 
 class ScheduleBlockUpdate(BaseModel):
@@ -29,6 +30,8 @@ class ScheduleBlockResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
     id: int
+    user_id: Optional[int] = Field(None, alias="userId")
+    task_id: Optional[int] = Field(None, alias="taskId")
     title: str
     start: float
     duration: float

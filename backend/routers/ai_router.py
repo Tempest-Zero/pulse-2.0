@@ -4,13 +4,17 @@ FastAPI endpoints for AI recommendations.
 """
 
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from models.base import get_db
 from models.recommendation_log import RecommendationLog
 from models.mood import MoodEntry
+from models.user import User
+from models.task import Task
+from models.schedule import ScheduleBlock
+from core.auth import get_current_user
 from schema.recommendation import (
     RecommendationResponse,
     RecommendationFeedback,
@@ -38,29 +42,29 @@ _task_selector = TaskSelector()
 
 @router.get("/recommendation", response_model=RecommendationResponse)
 def get_recommendation(
-    user_id: Optional[int] = Query(None, description="User ID (optional in single-user mode)"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """
-    Get an AI-powered task recommendation.
-    
+    Get an AI-powered task recommendation for the current user.
+
     The AI analyzes:
     - Current time of day
     - Your recent mood
     - Pending tasks and priorities
     - Your past preferences (learned over time)
-    
+
     Returns a recommended action with optional task suggestion.
     """
     try:
-        user_id = AIConfig.get_user_id(user_id)
-        
+        user_id = current_user.id
+
         # Update previous recommendation's next_recommendation_at for implicit feedback
         _update_previous_recommendation(db, user_id)
-        
+
         # Get recommendation
         result = _recommender.get_recommendation(db, user_id)
-        
+
         # Get alternative tasks if applicable
         alternative_tasks = None
         if result.task_id:
@@ -68,7 +72,7 @@ def get_recommendation(
             from ai.actions import ActionType
             state = StateSerializer.from_key(result.state_key)
             alternatives = _task_selector.get_task_suggestions(
-                ActionType(result.action.value), state, db, limit=3
+                ActionType(result.action.value), state, db, user_id=user_id, limit=3
             )
             alternative_tasks = [
                 TaskSuggestion(
@@ -80,12 +84,12 @@ def get_recommendation(
                 )
                 for t in alternatives if t.id != result.task_id
             ]
-        
-        # Get current mood for logging
+
+        # Get current mood for logging (user's mood only)
         mood_entry = db.query(MoodEntry).filter(
-            MoodEntry.user_id == user_id if not AIConfig.SINGLE_USER_MODE else True
+            MoodEntry.user_id == user_id
         ).order_by(MoodEntry.timestamp.desc()).first()
-        
+
         # Create log entry
         log = RecommendationLog(
             user_id=user_id,
@@ -105,12 +109,14 @@ def get_recommendation(
         db.add(log)
         db.commit()
         db.refresh(log)
-        
+
         # Build response
         suggested_task = None
         if result.task_id:
-            from models.task import Task
-            task = db.query(Task).filter(Task.id == result.task_id).first()
+            task = db.query(Task).filter(
+                Task.id == result.task_id,
+                Task.user_id == user_id
+            ).first()
             if task:
                 suggested_task = TaskSuggestion(
                     id=task.id,
@@ -119,7 +125,7 @@ def get_recommendation(
                     estimated_duration_minutes=task.estimated_duration,
                     deadline=task.deadline
                 )
-        
+
         return RecommendationResponse(
             recommendation_id=log.id,
             action_type=result.action.value,
@@ -143,24 +149,26 @@ def get_recommendation(
 @router.post("/feedback", response_model=FeedbackResponse)
 def submit_feedback(
     feedback: RecommendationFeedback,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """
     Submit feedback for a recommendation.
-    
+
     Feedback helps the AI learn your preferences:
     - Outcome: completed, partial, skipped, ignored
     - Rating: 1-5 stars
     - Mood after: How you feel after the activity
     """
-    # Find the recommendation log
+    # Find the recommendation log (must belong to current user)
     log = db.query(RecommendationLog).filter(
-        RecommendationLog.id == feedback.recommendation_id
+        RecommendationLog.id == feedback.recommendation_id,
+        RecommendationLog.user_id == current_user.id
     ).first()
-    
+
     if not log:
         raise HTTPException(status_code=404, detail="Recommendation not found")
-    
+
     # Determine outcome
     outcome = None
     if feedback.outcome:
@@ -168,25 +176,25 @@ def submit_feedback(
             outcome = Outcome(feedback.outcome)
         except ValueError:
             raise HTTPException(
-                status_code=400, 
+                status_code=400,
                 detail=f"Invalid outcome: {feedback.outcome}. Use: completed, partial, skipped, ignored"
             )
     else:
         # Try to infer outcome
         outcome = _feedback_inferencer.infer_outcome(log, db)
-    
+
     # Update log
     log.outcome = outcome.value
     log.outcome_recorded_at = datetime.now(timezone.utc)
-    
+
     if feedback.rating:
         log.user_rating = feedback.rating
-    
+
     if feedback.mood_after:
         log.mood_after = feedback.mood_after
-    
+
     log.was_followed = outcome in (Outcome.COMPLETED, Outcome.PARTIAL)
-    
+
     # Calculate reward and update agent
     from ai.actions import ActionType
     reward = _recommender.record_feedback(
@@ -201,20 +209,20 @@ def submit_feedback(
         suggested_duration=log.suggested_duration_minutes,
         actual_duration=feedback.actual_duration_minutes,
     )
-    
+
     log.reward = reward
     db.commit()
-    
+
     # Determine message based on outcome
     if outcome == Outcome.COMPLETED:
-        message = "Great job completing the task! 🎉"
+        message = "Great job completing the task!"
     elif outcome == Outcome.PARTIAL:
         message = "Good progress! Every step counts."
     elif outcome == Outcome.SKIPPED:
         message = "No worries, I'll learn from this."
     else:
         message = "Thanks for the feedback!"
-    
+
     return FeedbackResponse(
         success=True,
         reward=reward,
@@ -224,20 +232,20 @@ def submit_feedback(
 
 @router.get("/stats", response_model=AgentStatsResponse)
 def get_stats(
-    user_id: Optional[int] = Query(None),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """
-    Get statistics about the AI recommendation system.
-    
+    Get statistics about the AI recommendation system for the current user.
+
     Shows:
     - Learning phase (bootstrap, transition, learned)
     - Number of states explored
     - Exploration rate (epsilon)
     """
-    user_id = AIConfig.get_user_id(user_id)
+    user_id = current_user.id
     stats = _recommender.get_stats(user_id)
-    
+
     return AgentStatsResponse(
         user_id=stats["user_id"],
         total_states_visited=stats["total_states_visited"],
@@ -251,18 +259,18 @@ def get_stats(
 
 @router.get("/phase", response_model=UserPhaseInfo)
 def get_phase(
-    user_id: Optional[int] = Query(None),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """
-    Get information about the user's current learning phase.
+    Get information about the current user's learning phase.
     """
-    user_id = AIConfig.get_user_id(user_id)
+    user_id = current_user.id
     agent = ScheduleAgent.get_instance(user_id)
-    
+
     phase = agent._get_phase()
     total = agent.total_recommendations
-    
+
     # Calculate recommendations until next phase
     until_next = None
     if phase == "bootstrap":
@@ -273,7 +281,7 @@ def get_phase(
         description = "Learning your patterns with a mix of rules and AI"
     else:
         description = "Personalized recommendations based on your preferences"
-    
+
     return UserPhaseInfo(
         phase=phase,
         total_recommendations=total,
@@ -286,16 +294,19 @@ def get_phase(
 def infer_feedback_batch(
     min_age_hours: int = Query(2, ge=1, le=24),
     limit: int = Query(100, ge=1, le=500),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """
-    Trigger batch inference of outcomes for old recommendations.
-    
+    Trigger batch inference of outcomes for the current user's old recommendations.
+
     Processes recommendations without explicit feedback that are
     at least min_age_hours old.
     """
-    count = _feedback_inferencer.batch_infer_outcomes(db, min_age_hours, limit)
-    
+    count = _feedback_inferencer.batch_infer_outcomes(
+        db, min_age_hours, limit, user_id=current_user.id
+    )
+
     return InferFeedbackResponse(
         processed_count=count,
         message=f"Processed {count} recommendations"
@@ -303,10 +314,12 @@ def infer_feedback_batch(
 
 
 @router.post("/persist")
-def persist_agent_models():
+def persist_agent_models(
+    current_user: User = Depends(get_current_user)
+):
     """
-    Manually trigger agent model persistence.
-    
+    Manually trigger agent model persistence for the current user.
+
     This is normally done automatically every 5 minutes.
     """
     saved_count = ScheduleAgent.persist_all()
@@ -316,34 +329,40 @@ def persist_agent_models():
 @router.post("/breakdown-task/{task_id}")
 def breakdown_task(
     task_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """
     Break down a complex task into subtasks based on description and complexity.
-    
+
     Uses AI to analyze the task description and create manageable subtasks.
     """
-    from models.task import Task
-    from schema.task import TaskCreate
-    
-    # Get the task
-    task = db.query(Task).filter(Task.id == task_id).first()
+    # Get the task (must belong to current user)
+    task = db.query(Task).filter(
+        Task.id == task_id,
+        Task.user_id == current_user.id,
+        Task.is_deleted == False
+    ).first()
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
-    
+
     # Check if already broken down
-    existing_subtasks = db.query(Task).filter(Task.parent_id == task_id).all()
+    existing_subtasks = db.query(Task).filter(
+        Task.parent_id == task_id,
+        Task.user_id == current_user.id,
+        Task.is_deleted == False
+    ).all()
     if existing_subtasks:
         return {
             "message": "Task already broken down",
             "subtasks": [{"id": t.id, "title": t.title, "duration": t.duration} for t in existing_subtasks]
         }
-    
+
     # Analyze task complexity and break down
     description = task.description or task.title
     total_duration = task.duration  # in hours
     difficulty = task.difficulty
-    
+
     # Determine number of subtasks based on complexity
     if difficulty == "easy" or total_duration <= 1:
         num_subtasks = 2
@@ -351,11 +370,11 @@ def breakdown_task(
         num_subtasks = 3
     else:
         num_subtasks = 4
-    
+
     # Simple breakdown logic (can be enhanced with LLM)
     subtasks = []
     duration_per_subtask = total_duration / num_subtasks
-    
+
     # Common task breakdown patterns
     breakdown_keywords = {
         "research": ["Research", "Gather information", "Review sources"],
@@ -364,7 +383,7 @@ def breakdown_task(
         "design": ["Sketch", "Create mockups", "Refine design", "Finalize"],
         "study": ["Read materials", "Take notes", "Review", "Practice"],
     }
-    
+
     # Try to match keywords
     task_lower = description.lower()
     matched_pattern = None
@@ -372,37 +391,167 @@ def breakdown_task(
         if keyword in task_lower:
             matched_pattern = steps[:num_subtasks]
             break
-    
+
     # If no pattern matched, use generic breakdown
     if not matched_pattern:
         matched_pattern = [f"Step {i+1}" for i in range(num_subtasks)]
-    
+
     # Create subtasks
     for i, step_name in enumerate(matched_pattern):
         subtask = Task(
+            user_id=current_user.id,
             title=f"{task.title} - {step_name}",
             description=f"Part {i+1} of {task.title}",
             duration=duration_per_subtask,
             difficulty=difficulty,
             parent_id=task_id,
-            priority=task.priority,
-            user_id=task.user_id
+            priority=task.priority
         )
         db.add(subtask)
         subtasks.append(subtask)
-    
+
     db.commit()
-    
+
     return {
         "message": f"Task broken down into {len(subtasks)} subtasks",
         "subtasks": [{"id": t.id, "title": t.title, "duration": t.duration} for t in subtasks]
     }
 
 
+@router.post("/generate-schedule")
+def generate_ai_schedule(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Generate an AI-optimized schedule for the current user.
+
+    This endpoint:
+    1. Gets the user's pending tasks
+    2. Gets their fixed schedule blocks (classes, meetings)
+    3. Uses the AI to optimally place tasks in available time slots
+    4. Creates schedule blocks for each task
+
+    Returns the generated schedule blocks.
+    """
+    user_id = current_user.id
+
+    # Get pending tasks for this user
+    pending_tasks = db.query(Task).filter(
+        Task.user_id == user_id,
+        Task.is_deleted == False,
+        Task.completed == False
+    ).order_by(Task.priority.desc(), Task.deadline.asc().nullslast()).all()
+
+    if not pending_tasks:
+        return {
+            "message": "No pending tasks to schedule",
+            "blocks": []
+        }
+
+    # Get existing fixed blocks for this user
+    fixed_blocks = db.query(ScheduleBlock).filter(
+        ScheduleBlock.user_id == user_id,
+        ScheduleBlock.block_type == "fixed"
+    ).order_by(ScheduleBlock.start).all()
+
+    # Clear existing task blocks (regenerate schedule)
+    db.query(ScheduleBlock).filter(
+        ScheduleBlock.user_id == user_id,
+        ScheduleBlock.block_type == "task"
+    ).delete()
+
+    # Define working hours (9 AM to 8 PM)
+    start_hour = 9.0
+    end_hour = 20.0
+
+    # Build list of occupied time slots from fixed blocks
+    occupied = [(b.start, b.start + b.duration) for b in fixed_blocks]
+
+    # Find available slots
+    available_slots = []
+    current_time = start_hour
+
+    for occ_start, occ_end in sorted(occupied):
+        if occ_start > current_time:
+            available_slots.append((current_time, occ_start))
+        current_time = max(current_time, occ_end)
+
+    if current_time < end_hour:
+        available_slots.append((current_time, end_hour))
+
+    # Schedule tasks into available slots using priority order
+    created_blocks = []
+    slot_idx = 0
+    slot_time = available_slots[0][0] if available_slots else start_hour
+
+    for task in pending_tasks:
+        if slot_idx >= len(available_slots):
+            break  # No more slots available
+
+        task_duration = task.duration or 1.0  # Default 1 hour
+
+        # Find a slot that fits this task
+        while slot_idx < len(available_slots):
+            slot_start, slot_end = available_slots[slot_idx]
+            available_time = slot_end - max(slot_time, slot_start)
+
+            if available_time >= task_duration:
+                # Task fits in this slot
+                block_start = max(slot_time, slot_start)
+
+                block = ScheduleBlock(
+                    user_id=user_id,
+                    task_id=task.id,
+                    title=task.title,
+                    start=block_start,
+                    duration=task_duration,
+                    block_type="task"
+                )
+                db.add(block)
+                created_blocks.append(block)
+
+                # Update slot time
+                slot_time = block_start + task_duration
+
+                # Add a short break after task (15 min)
+                if slot_time + 0.25 < slot_end:
+                    slot_time += 0.25
+
+                break
+            else:
+                # Move to next slot
+                slot_idx += 1
+                if slot_idx < len(available_slots):
+                    slot_time = available_slots[slot_idx][0]
+
+    db.commit()
+
+    # Refresh blocks to get IDs
+    for block in created_blocks:
+        db.refresh(block)
+
+    return {
+        "message": f"Generated schedule with {len(created_blocks)} task blocks",
+        "blocks": [
+            {
+                "id": b.id,
+                "taskId": b.task_id,
+                "title": b.title,
+                "start": b.start,
+                "duration": b.duration,
+                "type": b.block_type
+            }
+            for b in created_blocks
+        ],
+        "unscheduled_tasks": len(pending_tasks) - len(created_blocks)
+    }
+
+
 def _update_previous_recommendation(db: Session, user_id: int) -> None:
     """
     Update the previous recommendation's next_recommendation_at timestamp.
-    
+
     This is used for implicit skip detection.
     """
     # Find the most recent recommendation for this user
@@ -411,7 +560,7 @@ def _update_previous_recommendation(db: Session, user_id: int) -> None:
         RecommendationLog.next_recommendation_at == None,
         RecommendationLog.outcome == None,
     ).order_by(RecommendationLog.timestamp.desc()).first()
-    
+
     if prev_log:
         prev_log.next_recommendation_at = datetime.now(timezone.utc)
         prev_log.activity_gap_seconds = int(

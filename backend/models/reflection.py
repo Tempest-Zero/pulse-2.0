@@ -4,7 +4,7 @@ SQLAlchemy ORM model for end-of-day reflections.
 """
 
 from typing import Any
-from sqlalchemy import Column, Integer, String, Date, DateTime, Text, JSON
+from sqlalchemy import Column, Integer, String, Date, DateTime, Text, JSON, ForeignKey, UniqueConstraint
 from sqlalchemy.sql import func
 from .base import Base
 
@@ -12,9 +12,10 @@ from .base import Base
 class Reflection(Base):
     """
     Reflection model representing an end-of-day reflection entry.
-    
+
     Attributes:
         id: Primary key
+        user_id: Owner user (for multi-user support)
         date: Date of the reflection
         mood_score: 1-5 scale (drained to energized)
         distractions: JSON array of distraction tag IDs
@@ -24,9 +25,13 @@ class Reflection(Base):
         created_at: Timestamp when reflection was created
     """
     __tablename__ = "reflections"
+    __table_args__ = (
+        UniqueConstraint('user_id', 'date', name='uq_user_date'),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
-    date = Column(Date, nullable=False, unique=True, index=True)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False, index=True)
+    date = Column(Date, nullable=False, index=True)
     mood_score = Column(Integer, nullable=False)  # 1-5 scale
     distractions = Column(JSON, default=list)  # List of distraction tag IDs
     note = Column(Text, default="")
@@ -41,6 +46,7 @@ class Reflection(Base):
         """Convert model to dictionary (for API responses)."""
         return {
             "id": self.id,
+            "userId": self.user_id,
             "date": self.date.isoformat() if self.date else None,
             "moodScore": self.mood_score,
             "distractions": self.distractions or [],
