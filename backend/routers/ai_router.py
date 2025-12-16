@@ -1,6 +1,12 @@
 """
 AI Router
-FastAPI endpoints for AI recommendations.
+FastAPI endpoints for AI-powered recommendations and intelligent scheduling.
+
+This module provides TRUE AI functionality:
+- LLM-powered schedule generation (OpenAI/Anthropic with intelligent fallback)
+- LLM-powered task breakdown
+- Hybrid Q-Learning recommendations
+- Context-aware optimization based on user energy, mood, and cognitive load
 """
 
 from datetime import datetime, timezone
@@ -30,6 +36,9 @@ from ai.reward_calculator import Outcome
 from ai.implicit_feedback import ImplicitFeedbackInferencer
 from ai.task_selector import TaskSelector
 from ai.agent import ScheduleAgent
+from ai.llm_service import get_llm_service
+from ai.context_encoder import ContextEncoder
+from ai.mood_mapper import MoodMapper
 
 
 router = APIRouter(prefix="/ai", tags=["AI"])
@@ -38,6 +47,8 @@ router = APIRouter(prefix="/ai", tags=["AI"])
 _recommender = HybridRecommender()
 _feedback_inferencer = ImplicitFeedbackInferencer()
 _task_selector = TaskSelector()
+_context_encoder = ContextEncoder()
+_mood_mapper = MoodMapper()
 
 
 @router.get("/recommendation", response_model=RecommendationResponse)
@@ -333,9 +344,16 @@ def breakdown_task(
     current_user: User = Depends(get_current_user)
 ):
     """
-    Break down a complex task into subtasks based on description and complexity.
+    Break down a complex task into subtasks using AI analysis.
 
-    Uses AI to analyze the task description and create manageable subtasks.
+    This endpoint uses LLM (when available) to intelligently analyze the task
+    and create meaningful, actionable subtasks based on:
+    - Task type detection (research, writing, development, etc.)
+    - Complexity and duration analysis
+    - User's current energy level and context
+    - Best practices for task decomposition
+
+    Falls back to intelligent rule-based breakdown when no LLM is available.
     """
     # Get the task (must belong to current user)
     task = db.query(Task).filter(
@@ -355,66 +373,79 @@ def breakdown_task(
     if existing_subtasks:
         return {
             "message": "Task already broken down",
-            "subtasks": [{"id": t.id, "title": t.title, "duration": t.duration} for t in existing_subtasks]
+            "subtasks": [{"id": t.id, "title": t.title, "duration": t.duration} for t in existing_subtasks],
+            "ai_powered": False
         }
 
-    # Analyze task complexity and break down
-    description = task.description or task.title
-    total_duration = task.duration  # in hours
-    difficulty = task.difficulty
+    # Get user context for personalization
+    user_id = current_user.id
+    mood_entry = db.query(MoodEntry).filter(
+        MoodEntry.user_id == user_id
+    ).order_by(MoodEntry.timestamp.desc()).first()
 
-    # Determine number of subtasks based on complexity
-    if difficulty == "easy" or total_duration <= 1:
-        num_subtasks = 2
-    elif difficulty == "medium" or total_duration <= 3:
-        num_subtasks = 3
-    else:
-        num_subtasks = 4
+    tasks_completed_today = db.query(Task).filter(
+        Task.user_id == user_id,
+        Task.completed == True,
+        Task.updated_at >= datetime.now(timezone.utc).replace(hour=0, minute=0, second=0)
+    ).count()
 
-    # Simple breakdown logic (can be enhanced with LLM)
-    subtasks = []
-    duration_per_subtask = total_duration / num_subtasks
-
-    # Common task breakdown patterns
-    breakdown_keywords = {
-        "research": ["Research", "Gather information", "Review sources"],
-        "write": ["Outline", "Draft", "Edit", "Proofread"],
-        "develop": ["Setup", "Implement core", "Add features", "Test"],
-        "design": ["Sketch", "Create mockups", "Refine design", "Finalize"],
-        "study": ["Read materials", "Take notes", "Review", "Practice"],
+    user_context = {
+        "energy_level": _mood_mapper.mood_to_energy(mood_entry.mood) if mood_entry else "medium",
+        "tasks_completed": tasks_completed_today,
+        "preferred_session_length": 45  # Default 45-minute sessions
     }
 
-    # Try to match keywords
-    task_lower = description.lower()
-    matched_pattern = None
-    for keyword, steps in breakdown_keywords.items():
-        if keyword in task_lower:
-            matched_pattern = steps[:num_subtasks]
-            break
+    # Use LLM service for intelligent breakdown
+    llm_service = get_llm_service()
+    task_data = {
+        "id": task.id,
+        "title": task.title,
+        "description": task.description or "",
+        "duration": task.duration or 2.0,
+        "difficulty": task.difficulty or "medium",
+        "priority": task.priority or 3,
+        "deadline": str(task.deadline) if task.deadline else None
+    }
 
-    # If no pattern matched, use generic breakdown
-    if not matched_pattern:
-        matched_pattern = [f"Step {i+1}" for i in range(num_subtasks)]
+    breakdown = llm_service.breakdown_task_intelligently(task_data, user_context)
 
-    # Create subtasks
-    for i, step_name in enumerate(matched_pattern):
+    # Create subtasks from breakdown
+    created_subtasks = []
+    for sub in breakdown.subtasks:
         subtask = Task(
             user_id=current_user.id,
-            title=f"{task.title} - {step_name}",
-            description=f"Part {i+1} of {task.title}",
-            duration=duration_per_subtask,
-            difficulty=difficulty,
+            title=sub.get("title", f"{task.title} - Step"),
+            description=sub.get("description", ""),
+            duration=sub.get("duration_hours", 0.5),
+            difficulty=sub.get("difficulty", task.difficulty),
             parent_id=task_id,
-            priority=task.priority
+            priority=task.priority,
+            estimated_duration=int(sub.get("duration_hours", 0.5) * 60)  # Convert to minutes
         )
         db.add(subtask)
-        subtasks.append(subtask)
+        created_subtasks.append(subtask)
 
     db.commit()
 
+    # Refresh to get IDs
+    for subtask in created_subtasks:
+        db.refresh(subtask)
+
     return {
-        "message": f"Task broken down into {len(subtasks)} subtasks",
-        "subtasks": [{"id": t.id, "title": t.title, "duration": t.duration} for t in subtasks]
+        "message": f"Task intelligently broken down into {len(created_subtasks)} subtasks",
+        "subtasks": [
+            {
+                "id": t.id,
+                "title": t.title,
+                "description": t.description,
+                "duration": t.duration,
+                "difficulty": t.difficulty
+            }
+            for t in created_subtasks
+        ],
+        "reasoning": breakdown.reasoning,
+        "estimated_total_time": breakdown.estimated_total_time,
+        "ai_powered": True
     }
 
 
@@ -424,128 +455,348 @@ def generate_ai_schedule(
     current_user: User = Depends(get_current_user)
 ):
     """
-    Generate an AI-optimized schedule for the current user.
+    Generate an AI-optimized schedule using LLM intelligence.
 
-    This endpoint:
-    1. Gets the user's pending tasks
-    2. Gets their fixed schedule blocks (classes, meetings)
-    3. Uses the AI to optimally place tasks in available time slots
-    4. Creates schedule blocks for each task
+    This endpoint uses TRUE AI to create an optimal schedule:
 
-    Returns the generated schedule blocks.
+    **AI Capabilities:**
+    - LLM analysis of tasks, priorities, and cognitive requirements
+    - Energy-aware scheduling (high-load tasks during peak hours)
+    - Ultradian rhythm optimization (90-minute work blocks with breaks)
+    - Context-aware placement based on user's current mood and energy
+    - Intelligent task batching to minimize context switching
+    - Deadline urgency analysis
+
+    **Process:**
+    1. Gathers user context (mood, energy, time of day, tasks completed)
+    2. Analyzes all pending tasks with their cognitive requirements
+    3. Uses LLM (or intelligent fallback) to optimize task placement
+    4. Creates schedule blocks with AI-generated reasoning for each placement
+
+    **Fallback:**
+    When no LLM API key is available, uses evidence-based productivity
+    principles (ultradian rhythms, cognitive load management) for scheduling.
+
+    Returns the generated schedule with AI insights.
     """
-    user_id = current_user.id
+    try:
+        user_id = current_user.id
+        now = datetime.now(timezone.utc)
+        current_hour = now.hour
 
-    # Get pending tasks for this user
-    pending_tasks = db.query(Task).filter(
-        Task.user_id == user_id,
-        Task.is_deleted == False,
-        Task.completed == False
-    ).order_by(Task.priority.desc(), Task.deadline.asc().nullslast()).all()
+        # Get pending tasks for this user
+        pending_tasks = db.query(Task).filter(
+            Task.user_id == user_id,
+            Task.is_deleted == False,
+            Task.completed == False
+        ).order_by(Task.priority.desc(), Task.deadline.asc().nullslast()).all()
 
-    if not pending_tasks:
-        return {
-            "message": "No pending tasks to schedule",
-            "blocks": []
+        if not pending_tasks:
+            return {
+                "message": "No pending tasks to schedule",
+                "blocks": [],
+                "ai_powered": True,
+                "optimization_notes": "Add some tasks to get started with AI scheduling!"
+            }
+
+        # Get existing fixed blocks for this user
+        fixed_blocks = db.query(ScheduleBlock).filter(
+            ScheduleBlock.user_id == user_id,
+            ScheduleBlock.block_type == "fixed"
+        ).order_by(ScheduleBlock.start).all()
+
+        # Get user context for AI optimization
+        mood_entry = db.query(MoodEntry).filter(
+            MoodEntry.user_id == user_id
+        ).order_by(MoodEntry.timestamp.desc()).first()
+
+        tasks_completed_today = db.query(Task).filter(
+            Task.user_id == user_id,
+            Task.completed == True,
+            Task.updated_at >= now.replace(hour=0, minute=0, second=0)
+        ).count()
+
+        # Determine energy level from mood
+        energy_level = "medium"
+        mood_str = "neutral"
+        if mood_entry:
+            mood_str = mood_entry.mood
+            energy_level = _mood_mapper.mood_to_energy(mood_str)
+
+        # Get day of week
+        days = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+        day_of_week = days[now.weekday()]
+
+        user_context = {
+            "current_hour": current_hour,
+            "energy_level": energy_level,
+            "mood": mood_str,
+            "day_of_week": day_of_week,
+            "tasks_completed": tasks_completed_today
         }
 
-    # Get existing fixed blocks for this user
-    fixed_blocks = db.query(ScheduleBlock).filter(
-        ScheduleBlock.user_id == user_id,
-        ScheduleBlock.block_type == "fixed"
-    ).order_by(ScheduleBlock.start).all()
+        # Format tasks for LLM
+        tasks_data = []
+        for task in pending_tasks:
+            tasks_data.append({
+                "id": task.id,
+                "title": task.title,
+                "description": task.description or "",
+                "priority": task.priority or 3,
+                "duration": task.duration or 1.0,
+                "difficulty": task.difficulty or "medium",
+                "deadline": str(task.deadline) if task.deadline else None
+            })
 
-    # Clear existing task blocks (regenerate schedule)
-    db.query(ScheduleBlock).filter(
-        ScheduleBlock.user_id == user_id,
-        ScheduleBlock.block_type == "task"
-    ).delete()
+        # Format fixed blocks for LLM
+        fixed_data = []
+        for block in fixed_blocks:
+            fixed_data.append({
+                "title": block.title,
+                "start": block.start,
+                "duration": block.duration,
+                "block_type": block.block_type
+            })
 
-    # Define working hours (9 AM to 8 PM)
-    start_hour = 9.0
-    end_hour = 20.0
+        # Clear existing task blocks (regenerate schedule)
+        db.query(ScheduleBlock).filter(
+            ScheduleBlock.user_id == user_id,
+            ScheduleBlock.block_type.in_(["task", "break"])
+        ).delete(synchronize_session=False)
 
-    # Build list of occupied time slots from fixed blocks
-    occupied = [(b.start, b.start + b.duration) for b in fixed_blocks]
+        # Use LLM service for intelligent scheduling
+        llm_service = get_llm_service()
+        schedule_blocks = llm_service.generate_intelligent_schedule(
+            tasks=tasks_data,
+            fixed_blocks=fixed_data,
+            user_context=user_context,
+            working_hours=(9.0, 20.0)
+        )
 
-    # Find available slots
-    available_slots = []
-    current_time = start_hour
+        # Create schedule blocks in database
+        created_blocks = []
+        scheduled_task_ids = set()
 
-    for occ_start, occ_end in sorted(occupied):
-        if occ_start > current_time:
-            available_slots.append((current_time, occ_start))
-        current_time = max(current_time, occ_end)
+        for ai_block in schedule_blocks:
+            block = ScheduleBlock(
+                user_id=user_id,
+                task_id=ai_block.task_id,
+                title=ai_block.title,
+                start=ai_block.start_hour,
+                duration=ai_block.duration_hours,
+                block_type=ai_block.block_type
+            )
+            db.add(block)
+            created_blocks.append({
+                "block": block,
+                "reasoning": ai_block.reasoning,
+                "energy_required": ai_block.energy_required,
+                "cognitive_load": ai_block.cognitive_load
+            })
+            if ai_block.task_id:
+                scheduled_task_ids.add(ai_block.task_id)
 
-    if current_time < end_hour:
-        available_slots.append((current_time, end_hour))
+        db.commit()
 
-    # Schedule tasks into available slots using priority order
-    created_blocks = []
-    slot_idx = 0
-    slot_time = available_slots[0][0] if available_slots else start_hour
+        # Refresh blocks to get IDs
+        for item in created_blocks:
+            db.refresh(item["block"])
 
-    for task in pending_tasks:
-        if slot_idx >= len(available_slots):
-            break  # No more slots available
-
-        task_duration = task.duration or 1.0  # Default 1 hour
-
-        # Find a slot that fits this task
-        while slot_idx < len(available_slots):
-            slot_start, slot_end = available_slots[slot_idx]
-            available_time = slot_end - max(slot_time, slot_start)
-
-            if available_time >= task_duration:
-                # Task fits in this slot
-                block_start = max(slot_time, slot_start)
-
-                block = ScheduleBlock(
-                    user_id=user_id,
-                    task_id=task.id,
-                    title=task.title,
-                    start=block_start,
-                    duration=task_duration,
-                    block_type="task"
-                )
-                db.add(block)
-                created_blocks.append(block)
-
-                # Update slot time
-                slot_time = block_start + task_duration
-
-                # Add a short break after task (15 min)
-                if slot_time + 0.25 < slot_end:
-                    slot_time += 0.25
-
-                break
-            else:
-                # Move to next slot
-                slot_idx += 1
-                if slot_idx < len(available_slots):
-                    slot_time = available_slots[slot_idx][0]
-
-    db.commit()
-
-    # Refresh blocks to get IDs
-    for block in created_blocks:
-        db.refresh(block)
-
-    return {
-        "message": f"Generated schedule with {len(created_blocks)} task blocks",
-        "blocks": [
-            {
+        # Build response with AI insights
+        response_blocks = []
+        for item in created_blocks:
+            b = item["block"]
+            response_blocks.append({
                 "id": b.id,
                 "taskId": b.task_id,
                 "title": b.title,
                 "start": b.start,
                 "duration": b.duration,
-                "type": b.block_type
-            }
-            for b in created_blocks
-        ],
-        "unscheduled_tasks": len(pending_tasks) - len(created_blocks)
-    }
+                "type": b.block_type,
+                "reasoning": item["reasoning"],
+                "energyRequired": item["energy_required"],
+                "cognitiveLoad": item["cognitive_load"]
+            })
+
+        # Count unscheduled tasks
+        unscheduled_count = len(pending_tasks) - len(scheduled_task_ids)
+
+        # Generate optimization notes
+        optimization_notes = _generate_optimization_notes(user_context, len(scheduled_task_ids), unscheduled_count)
+
+        return {
+            "message": f"AI-optimized schedule generated with {len(response_blocks)} blocks",
+            "blocks": response_blocks,
+            "unscheduled_tasks": unscheduled_count,
+            "ai_powered": True,
+            "user_context": {
+                "energy_level": energy_level,
+                "mood": mood_str,
+                "time_of_day": _get_time_block(current_hour),
+                "tasks_completed_today": tasks_completed_today
+            },
+            "optimization_notes": optimization_notes
+        }
+
+    except Exception as e:
+        import traceback
+        error_detail = f"{type(e).__name__}: {str(e)}\n{traceback.format_exc()}"
+        print(f"[AI] Schedule generation error: {error_detail}")
+        raise HTTPException(status_code=500, detail=error_detail)
+
+
+def _get_time_block(hour: int) -> str:
+    """Convert hour to human-readable time block."""
+    if 6 <= hour < 12:
+        return "morning"
+    elif 12 <= hour < 18:
+        return "afternoon"
+    elif 18 <= hour < 22:
+        return "evening"
+    else:
+        return "night"
+
+
+def _generate_optimization_notes(user_context: dict, scheduled: int, unscheduled: int) -> str:
+    """Generate helpful notes about the schedule optimization."""
+    notes = []
+
+    energy = user_context.get("energy_level", "medium")
+    time_block = _get_time_block(user_context.get("current_hour", 12))
+    tasks_done = user_context.get("tasks_completed", 0)
+
+    if energy == "high" and time_block == "morning":
+        notes.append("Peak productivity time! High-priority tasks scheduled for your morning energy surge.")
+    elif energy == "low":
+        notes.append("Your energy is low - schedule includes strategic breaks to help you recharge.")
+
+    if tasks_done >= 5:
+        notes.append(f"Impressive! You've completed {tasks_done} tasks today. Schedule adjusted to prevent burnout.")
+
+    if unscheduled > 0:
+        notes.append(f"{unscheduled} task(s) couldn't fit today - consider breaking them down or scheduling tomorrow.")
+
+    if time_block == "evening":
+        notes.append("Evening schedule focuses on lighter tasks to wind down naturally.")
+
+    if not notes:
+        notes.append("Schedule optimized based on your current energy, priorities, and cognitive load requirements.")
+
+    return " ".join(notes)
+
+
+@router.get("/smart-recommendation")
+def get_smart_recommendation(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get an LLM-powered smart recommendation for what to do next.
+
+    This endpoint goes beyond the Q-learning system by using LLM to:
+    - Understand task descriptions and contexts
+    - Analyze recent activity patterns
+    - Provide personalized advice with explanations
+    - Consider complex factors like burnout prevention
+
+    Returns a recommendation with detailed reasoning and tips.
+    """
+    try:
+        user_id = current_user.id
+        now = datetime.now(timezone.utc)
+        current_hour = now.hour
+
+        # Get user's current mood
+        mood_entry = db.query(MoodEntry).filter(
+            MoodEntry.user_id == user_id
+        ).order_by(MoodEntry.timestamp.desc()).first()
+
+        # Get pending tasks
+        pending_tasks = db.query(Task).filter(
+            Task.user_id == user_id,
+            Task.is_deleted == False,
+            Task.completed == False
+        ).order_by(Task.priority.desc(), Task.deadline.asc().nullslast()).all()
+
+        # Get recent activity (last 3 recommendations)
+        recent_logs = db.query(RecommendationLog).filter(
+            RecommendationLog.user_id == user_id
+        ).order_by(RecommendationLog.timestamp.desc()).limit(5).all()
+
+        recent_activity = []
+        for log in recent_logs:
+            recent_activity.append({
+                "action_type": log.action_type,
+                "timestamp": log.timestamp.isoformat() if log.timestamp else None,
+                "outcome": log.outcome,
+                "was_followed": log.was_followed
+            })
+
+        # Get day of week
+        days = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+        day_of_week = days[now.weekday()]
+
+        # Build user state
+        energy_level = _mood_mapper.mood_to_energy(mood_entry.mood) if mood_entry else "medium"
+        user_state = {
+            "time_block": _get_time_block(current_hour),
+            "hour": current_hour,
+            "energy_level": energy_level,
+            "mood": mood_entry.mood if mood_entry else "neutral",
+            "day_of_week": day_of_week
+        }
+
+        # Format tasks
+        tasks_data = []
+        for task in pending_tasks[:10]:  # Top 10 tasks
+            tasks_data.append({
+                "id": task.id,
+                "title": task.title,
+                "priority": task.priority or 3,
+                "duration": task.duration or 1.0,
+                "deadline": str(task.deadline) if task.deadline else None
+            })
+
+        # Get LLM-powered recommendation
+        llm_service = get_llm_service()
+        result = llm_service.get_smart_recommendation(
+            user_state=user_state,
+            available_tasks=tasks_data,
+            recent_activity=recent_activity
+        )
+
+        # Get the suggested task details if applicable
+        suggested_task = None
+        if result.get("recommended_task_id"):
+            task = db.query(Task).filter(
+                Task.id == result["recommended_task_id"],
+                Task.user_id == user_id
+            ).first()
+            if task:
+                suggested_task = {
+                    "id": task.id,
+                    "title": task.title,
+                    "priority": task.priority,
+                    "duration": task.duration,
+                    "deadline": str(task.deadline) if task.deadline else None
+                }
+
+        return {
+            "action_type": result.get("action_type", "light_task"),
+            "reasoning": result.get("reasoning", ""),
+            "duration_minutes": result.get("duration_minutes", 45),
+            "confidence": result.get("confidence", 0.7),
+            "tips": result.get("tips", []),
+            "suggested_task": suggested_task,
+            "user_context": user_state,
+            "ai_powered": True
+        }
+
+    except Exception as e:
+        import traceback
+        error_detail = f"{type(e).__name__}: {str(e)}\n{traceback.format_exc()}"
+        print(f"[AI] Smart recommendation error: {error_detail}")
+        raise HTTPException(status_code=500, detail=error_detail)
 
 
 def _update_previous_recommendation(db: Session, user_id: int) -> None:

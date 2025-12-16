@@ -73,3 +73,15 @@ class MoodMapper:
     def is_valid_mood(cls, mood: str) -> bool:
         """Check if a mood string is recognized."""
         return mood.lower().strip() in cls.MOOD_SCORES
+
+    def mood_to_energy(self, mood: str | None) -> str:
+        """
+        Instance method alias for get_energy_category.
+
+        Args:
+            mood: Mood string
+
+        Returns:
+            'high', 'medium', or 'low'
+        """
+        return self.get_energy_category(mood)
