@@ -87,7 +87,7 @@ class HybridRecommender:
         state_key = StateSerializer.to_key(state)
         
         # Step 2: Get valid actions (action masking)
-        valid_actions = self.action_masker.get_valid_actions(state, db)
+        valid_actions = self.action_masker.get_valid_actions(state, db, user_id)
         
         # Step 3: Determine phase and get agent
         agent = ScheduleAgent.get_instance(user_id)
