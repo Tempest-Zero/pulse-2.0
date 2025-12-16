@@ -113,18 +113,19 @@ export function transformScheduleBlock(backendBlock) {
   const endTimeHours = backendBlock.start + backendBlock.duration;
   const endHour = Math.floor(endTimeHours);
   const endMin = Math.floor((endTimeHours % 1) * 60);
-  
+
   const startTime = new Date();
   startTime.setHours(startHour, startMin, 0, 0);
-  
+
   const endTime = new Date();
   endTime.setHours(endHour, endMin, 0, 0);
-  
+
   // Convert duration from hours to minutes for frontend
   const durationMinutes = Math.round(backendBlock.duration * 60);
-  
+
   return {
     id: backendBlock.id,
+    taskId: backendBlock.taskId || backendBlock.task_id, // Link to task
     name: backendBlock.title,
     title: backendBlock.title,
     duration: durationMinutes, // Store in minutes for frontend

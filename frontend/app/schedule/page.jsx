@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { getTasks, createTask, deleteTask, transformTask } from "@/lib/api/tasks"
 import { getScheduleBlocks, createScheduleBlock, clearAllScheduleBlocks, transformScheduleBlock, uploadClassSchedule, getAvailableSlots, deleteScheduleBlock } from "@/lib/api/schedule"
-import { breakdownTask } from "@/lib/api/ai"
+import { breakdownTask, generateAiSchedule } from "@/lib/api/ai"
 import { useToast } from "@/hooks/use-toast"
 import {
   Dialog,
@@ -162,70 +162,36 @@ export default function SchedulePage() {
     setGenerating(true)
 
     try {
-      // Clear existing task schedule blocks (keep fixed ones)
-      const existingBlocks = await getScheduleBlocks()
-      for (const block of existingBlocks) {
-        if (block.block_type === 'task') {
-          await deleteScheduleBlock(block.id)
-        }
-      }
+      // Call backend AI schedule generation endpoint
+      const result = await generateAiSchedule()
 
-      // Get all tasks including subtasks
-      const allTasks = []
-      for (const task of tasks) {
-        if (task.subtasks && task.subtasks.length > 0) {
-          // Use subtasks instead of parent
-          allTasks.push(...task.subtasks)
-        } else {
-          allTasks.push(task)
-        }
-      }
+      if (result.blocks && result.blocks.length > 0) {
+        // Transform and add AI tips to blocks
+        const blocksWithTips = result.blocks.map(block => ({
+          ...transformScheduleBlock(block),
+          aiTip: getAITip(block.title)
+        }))
 
-      // Get available slots
-      const availableSlots = await getAvailableSlots(9.0, 20.0, 1.0)
-      
-      let slotIndex = 0
-      const newSchedule = []
+        setSchedule(blocksWithTips)
 
-      for (const task of allTasks) {
-        const taskDurationHours = task.duration / 60
-        
-        // Find next available slot
-        let scheduled = false
-        while (slotIndex < availableSlots.available_slots.length && !scheduled) {
-          const slot = availableSlots.available_slots[slotIndex]
-          if (slot.duration >= taskDurationHours) {
-            // Create schedule block for this task
-            const blockData = {
-              title: task.task || task.name,
-              start: slot.start,
-              duration: taskDurationHours,
-              block_type: 'task',
-            }
+        toast({
+          title: "Schedule generated",
+          description: result.message || `Created ${result.blocks.length} task blocks`,
+        })
 
-            const createdBlock = await createScheduleBlock(blockData)
-            const transformed = transformScheduleBlock(createdBlock)
-            transformed.aiTip = getAITip(task.task || task.name)
-            newSchedule.push(transformed)
-            scheduled = true
-          }
-          slotIndex++
-        }
-        
-        if (!scheduled) {
+        if (result.unscheduled_tasks > 0) {
           toast({
-            title: "Warning",
-            description: `Could not schedule "${task.name}" - no available slots`,
+            title: "Some tasks could not be scheduled",
+            description: `${result.unscheduled_tasks} task(s) didn't fit in available time slots`,
             variant: "destructive",
           })
         }
+      } else {
+        toast({
+          title: "No schedule generated",
+          description: result.message || "No tasks were scheduled",
+        })
       }
-
-      await loadSchedule()
-      toast({
-        title: "Schedule generated",
-        description: "Your schedule has been created successfully",
-      })
     } catch (error) {
       toast({
         title: "Error generating schedule",

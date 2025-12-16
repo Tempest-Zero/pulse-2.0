@@ -66,3 +66,13 @@ export async function breakdownTask(taskId) {
   });
 }
 
+/**
+ * Generate an AI-optimized schedule for the user's tasks
+ * Returns schedule blocks with tasks optimally placed
+ */
+export async function generateAiSchedule() {
+  return apiRequest('/ai/generate-schedule', {
+    method: 'POST',
+  });
+}
+

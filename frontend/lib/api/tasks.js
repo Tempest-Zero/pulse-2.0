@@ -86,14 +86,15 @@ export function transformTask(backendTask) {
   const durationMinutes = Math.round((backendTask.duration || 0) * 60);
   const hours = Math.floor(durationMinutes / 60);
   const minutes = durationMinutes % 60;
-  const timeStr = hours > 0 
+  const timeStr = hours > 0
     ? `${hours}h${minutes > 0 ? ` ${minutes} min` : ''}`.trim()
     : `${minutes} min`;
-  
+
   return {
     id: backendTask.id,
-    task: backendTask.title,
-    title: backendTask.title,
+    name: backendTask.title, // Primary display name
+    task: backendTask.title, // Alias for compatibility
+    title: backendTask.title, // Alias for compatibility
     done: backendTask.completed,
     completed: backendTask.completed,
     time: timeStr,
