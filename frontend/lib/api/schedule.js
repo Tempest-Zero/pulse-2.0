@@ -29,7 +29,7 @@ export async function createScheduleBlock(blockData) {
   if (duration > 8) {
     duration = duration / 60;
   }
-  
+
   const backendData = {
     title: blockData.title || blockData.name,
     start: parseFloat(blockData.start),
@@ -56,7 +56,7 @@ export async function updateScheduleBlock(blockId, blockData) {
   if (blockData.block_type || blockData.type) {
     backendData.block_type = blockData.block_type || blockData.type;
   }
-  
+
   return apiRequest(`/schedule/${blockId}`, {
     method: 'PATCH',
     body: JSON.stringify(backendData),
@@ -81,18 +81,26 @@ export async function clearAllScheduleBlocks() {
 export async function uploadClassSchedule(file) {
   const formData = new FormData();
   formData.append('file', file);
-  
+
+  // Import token getter
+  const { getStoredToken } = await import('../auth-context');
+  const token = getStoredToken();
+
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
   const response = await fetch(`${API_BASE_URL}/schedule/upload-class-schedule`, {
     method: 'POST',
+    headers: {
+      // Don't set Content-Type for FormData - browser sets it with boundary
+      ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+    },
     body: formData,
   });
-  
+
   if (!response.ok) {
     const error = await response.json();
     throw new Error(error.detail || 'Upload failed');
   }
-  
+
   return response.json();
 }
 
