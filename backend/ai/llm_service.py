@@ -1,10 +1,16 @@
 """
 LLM Service for AI-Powered Schedule Generation
 Integrates with Google Gemini for intelligent scheduling and task analysis.
+
+Features:
+- Text-based schedule generation
+- Vision-based schedule extraction from images (class schedules, timetables)
+- Task breakdown and recommendations
 """
 
 import os
 import json
+import base64
 from typing import Optional, List, Dict, Any
 from datetime import datetime, timezone
 from dataclasses import dataclass
@@ -12,9 +18,29 @@ from dataclasses import dataclass
 # Try to import Gemini client
 try:
     import google.generativeai as genai
+    from google.generativeai.types import HarmCategory, HarmBlockThreshold
     GEMINI_AVAILABLE = True
 except ImportError:
     GEMINI_AVAILABLE = False
+
+# Try to import PIL for image processing
+try:
+    from PIL import Image
+    import io
+    PIL_AVAILABLE = True
+except ImportError:
+    PIL_AVAILABLE = False
+
+
+@dataclass
+class ExtractedScheduleItem:
+    """A schedule item extracted from an image."""
+    title: str
+    day_of_week: str  # monday, tuesday, etc.
+    start_time: str   # "09:00" format
+    end_time: str     # "10:30" format
+    location: Optional[str] = None
+    notes: Optional[str] = None
 
 
 @dataclass
@@ -43,20 +69,24 @@ class LLMService:
     Service for LLM-powered AI features.
 
     Supports:
-    - Google Gemini (gemini-1.5-flash)
+    - Google Gemini (gemini-1.5-flash) for text generation
+    - Google Gemini Vision for image analysis (schedule extraction)
     - Intelligent fallback when no API key available
     """
 
     def __init__(self):
         self.gemini_model = None
+        self.gemini_vision_model = None
         self._init_clients()
 
     def _init_clients(self):
-        """Initialize Gemini client."""
+        """Initialize Gemini clients for both text and vision."""
         gemini_key = os.getenv("GEMINI_API_KEY")
 
         if GEMINI_AVAILABLE and gemini_key:
             genai.configure(api_key=gemini_key)
+
+            # Text generation model (JSON output)
             self.gemini_model = genai.GenerativeModel(
                 model_name="gemini-1.5-flash",
                 generation_config={
@@ -65,7 +95,18 @@ class LLMService:
                     "response_mime_type": "application/json"
                 }
             )
-            print("[LLM] Gemini client initialized")
+
+            # Vision model for image analysis (also supports JSON)
+            self.gemini_vision_model = genai.GenerativeModel(
+                model_name="gemini-1.5-flash",
+                generation_config={
+                    "temperature": 0.3,  # Lower temp for more accurate extraction
+                    "max_output_tokens": 4000,
+                    "response_mime_type": "application/json"
+                }
+            )
+
+            print("[LLM] Gemini text and vision clients initialized")
         else:
             print("[LLM] No Gemini API key found - using intelligent fallback")
 
@@ -80,7 +121,7 @@ class LLMService:
                 full_prompt = f"{system_prompt}\n\n{user_prompt}"
                 if json_mode:
                     full_prompt += "\n\nRespond with valid JSON only."
-                
+
                 response = self.gemini_model.generate_content(full_prompt)
                 return response.text
             except Exception as e:
@@ -88,6 +129,184 @@ class LLMService:
 
         # No LLM available
         return None
+
+    def extract_schedule_from_image(
+        self,
+        image_bytes: bytes,
+        image_mime_type: str = "image/png"
+    ) -> Dict[str, Any]:
+        """
+        Extract schedule information from an uploaded image using Gemini Vision.
+
+        This method analyzes images of:
+        - Class schedules / timetables
+        - University course schedules
+        - Work calendars
+        - Any structured schedule format
+
+        Args:
+            image_bytes: Raw bytes of the image
+            image_mime_type: MIME type of the image (image/png, image/jpeg, etc.)
+
+        Returns:
+            Dictionary containing:
+            - schedule_items: List of extracted schedule entries
+            - raw_text: Any text found in the image
+            - confidence: How confident the extraction is
+            - warnings: Any issues encountered
+        """
+        if not self.gemini_vision_model:
+            return {
+                "success": False,
+                "error": "Gemini Vision not available - no API key configured",
+                "schedule_items": [],
+                "fallback": True
+            }
+
+        prompt = """Analyze this schedule/timetable image and extract ALL schedule entries.
+
+For each class, meeting, or scheduled event, extract:
+1. **title**: The name of the class/event (e.g., "CS 101 - Introduction to Programming")
+2. **day_of_week**: Which day(s) it occurs (monday, tuesday, wednesday, thursday, friday, saturday, sunday)
+3. **start_time**: Start time in 24-hour format "HH:MM" (e.g., "09:00", "14:30")
+4. **end_time**: End time in 24-hour format "HH:MM"
+5. **location**: Room number or location if visible (can be null)
+6. **notes**: Any additional info like instructor name (can be null)
+
+IMPORTANT RULES:
+- If a class occurs on multiple days (e.g., "MWF"), create SEPARATE entries for each day
+- Convert 12-hour times to 24-hour format (2:30 PM → "14:30")
+- Use lowercase for days: "monday", not "Monday"
+- If you can't read something clearly, make your best guess and note it in warnings
+- Extract EVERY visible schedule entry, don't skip any
+
+Respond with this JSON structure:
+{
+    "schedule_items": [
+        {
+            "title": "Course or event name",
+            "day_of_week": "monday",
+            "start_time": "09:00",
+            "end_time": "10:30",
+            "location": "Room 101",
+            "notes": "Prof. Smith"
+        }
+    ],
+    "raw_text": "Any relevant text you can see in the image",
+    "total_items_found": 5,
+    "confidence": "high|medium|low",
+    "warnings": ["Any issues or unclear parts"],
+    "schedule_type": "class_schedule|work_calendar|weekly_planner|other"
+}"""
+
+        try:
+            # Create image part for Gemini
+            image_part = {
+                "mime_type": image_mime_type,
+                "data": base64.b64encode(image_bytes).decode("utf-8")
+            }
+
+            # Call Gemini Vision
+            response = self.gemini_vision_model.generate_content([prompt, image_part])
+            result_text = response.text
+
+            # Parse the JSON response
+            try:
+                result = json.loads(result_text)
+                result["success"] = True
+                result["ai_powered"] = True
+
+                # Validate and clean up schedule items
+                cleaned_items = []
+                for item in result.get("schedule_items", []):
+                    cleaned_item = {
+                        "title": item.get("title", "Untitled"),
+                        "day_of_week": item.get("day_of_week", "").lower(),
+                        "start_time": item.get("start_time", "09:00"),
+                        "end_time": item.get("end_time", "10:00"),
+                        "location": item.get("location"),
+                        "notes": item.get("notes")
+                    }
+                    # Validate day of week
+                    valid_days = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+                    if cleaned_item["day_of_week"] in valid_days:
+                        cleaned_items.append(cleaned_item)
+                    else:
+                        print(f"[Vision] Skipping item with invalid day: {cleaned_item['day_of_week']}")
+
+                result["schedule_items"] = cleaned_items
+                result["total_items_found"] = len(cleaned_items)
+
+                return result
+
+            except json.JSONDecodeError as e:
+                print(f"[Vision] Failed to parse JSON response: {e}")
+                print(f"[Vision] Raw response: {result_text[:500]}")
+                return {
+                    "success": False,
+                    "error": f"Failed to parse AI response: {e}",
+                    "raw_response": result_text[:1000],
+                    "schedule_items": []
+                }
+
+        except Exception as e:
+            print(f"[Vision] Gemini Vision error: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+                "schedule_items": []
+            }
+
+    def convert_extracted_to_fixed_blocks(
+        self,
+        extracted_items: List[Dict[str, Any]],
+        target_day: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        Convert extracted schedule items to fixed schedule blocks for the database.
+
+        Args:
+            extracted_items: List of items from extract_schedule_from_image
+            target_day: If provided, only return blocks for this day (e.g., "monday")
+
+        Returns:
+            List of schedule block dictionaries ready for database insertion
+        """
+        blocks = []
+
+        for item in extracted_items:
+            # Filter by day if specified
+            if target_day and item.get("day_of_week") != target_day.lower():
+                continue
+
+            # Parse times to hours (float)
+            try:
+                start_parts = item.get("start_time", "09:00").split(":")
+                start_hour = int(start_parts[0]) + int(start_parts[1]) / 60
+
+                end_parts = item.get("end_time", "10:00").split(":")
+                end_hour = int(end_parts[0]) + int(end_parts[1]) / 60
+
+                duration = end_hour - start_hour
+                if duration <= 0:
+                    duration = 1.0  # Default 1 hour if invalid
+
+            except (ValueError, IndexError):
+                start_hour = 9.0
+                duration = 1.0
+
+            block = {
+                "title": item.get("title", "Class"),
+                "start": start_hour,
+                "duration": duration,
+                "block_type": "fixed",
+                "day_of_week": item.get("day_of_week"),
+                "location": item.get("location"),
+                "notes": item.get("notes")
+            }
+            blocks.append(block)
+
+        return blocks
 
     def generate_intelligent_schedule(
         self,

@@ -39,6 +39,8 @@ export function AuthProvider({ children }) {
 
     /**
      * Validate token by calling /auth/me
+     * Only logs out if we get a definitive 401/403 (token truly invalid)
+     * Network errors and other issues keep user logged in (offline support)
      */
     const validateToken = async (authToken) => {
         try {
@@ -49,12 +51,17 @@ export function AuthProvider({ children }) {
                 },
             });
 
-            if (!response.ok) {
-                // Token is invalid, clear auth state
+            if (response.status === 401 || response.status === 403) {
+                // Token is definitely invalid or expired - log out
+                console.log('[Auth] Token invalid (401/403), logging out');
                 logout();
+            } else if (!response.ok) {
+                // Other errors (500, network issues, etc.) - keep user logged in
+                console.warn('[Auth] Token validation returned non-OK status:', response.status);
+                // Don't logout - could be temporary server issue
             }
         } catch (err) {
-            console.error('Token validation failed:', err);
+            console.warn('[Auth] Token validation network error:', err.message);
             // Keep user logged in if network error (offline support)
         }
     };
