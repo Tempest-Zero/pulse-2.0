@@ -1,6 +1,6 @@
 """
 LLM Service for AI-Powered Schedule Generation
-Integrates with OpenAI/Anthropic for intelligent scheduling and task analysis.
+Integrates with Google Gemini for intelligent scheduling and task analysis.
 """
 
 import os
@@ -9,18 +9,12 @@ from typing import Optional, List, Dict, Any
 from datetime import datetime, timezone
 from dataclasses import dataclass
 
-# Try to import LLM clients
+# Try to import Gemini client
 try:
-    from openai import OpenAI
-    OPENAI_AVAILABLE = True
+    import google.generativeai as genai
+    GEMINI_AVAILABLE = True
 except ImportError:
-    OPENAI_AVAILABLE = False
-
-try:
-    from anthropic import Anthropic
-    ANTHROPIC_AVAILABLE = True
-except ImportError:
-    ANTHROPIC_AVAILABLE = False
+    GEMINI_AVAILABLE = False
 
 
 @dataclass
@@ -49,66 +43,48 @@ class LLMService:
     Service for LLM-powered AI features.
 
     Supports:
-    - OpenAI (GPT-4)
-    - Anthropic (Claude)
-    - Intelligent fallback when no API keys available
+    - Google Gemini (gemini-1.5-flash)
+    - Intelligent fallback when no API key available
     """
 
     def __init__(self):
-        self.openai_client = None
-        self.anthropic_client = None
+        self.gemini_model = None
         self._init_clients()
 
     def _init_clients(self):
-        """Initialize available LLM clients."""
-        openai_key = os.getenv("OPENAI_API_KEY")
-        anthropic_key = os.getenv("ANTHROPIC_API_KEY")
+        """Initialize Gemini client."""
+        gemini_key = os.getenv("GEMINI_API_KEY")
 
-        if OPENAI_AVAILABLE and openai_key:
-            self.openai_client = OpenAI(api_key=openai_key)
-            print("[LLM] OpenAI client initialized")
-
-        if ANTHROPIC_AVAILABLE and anthropic_key:
-            self.anthropic_client = Anthropic(api_key=anthropic_key)
-            print("[LLM] Anthropic client initialized")
-
-        if not self.openai_client and not self.anthropic_client:
-            print("[LLM] No LLM API keys found - using intelligent fallback")
+        if GEMINI_AVAILABLE and gemini_key:
+            genai.configure(api_key=gemini_key)
+            self.gemini_model = genai.GenerativeModel(
+                model_name="gemini-1.5-flash",
+                generation_config={
+                    "temperature": 0.7,
+                    "max_output_tokens": 2000,
+                    "response_mime_type": "application/json"
+                }
+            )
+            print("[LLM] Gemini client initialized")
+        else:
+            print("[LLM] No Gemini API key found - using intelligent fallback")
 
     def _call_llm(self, system_prompt: str, user_prompt: str, json_mode: bool = True) -> str:
         """
-        Call the available LLM with the given prompts.
+        Call Gemini with the given prompts.
         Falls back gracefully if no LLM is available.
         """
-        # Try OpenAI first
-        if self.openai_client:
+        if self.gemini_model:
             try:
-                response = self.openai_client.chat.completions.create(
-                    model="gpt-4o-mini",  # Fast and cost-effective
-                    messages=[
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": user_prompt}
-                    ],
-                    response_format={"type": "json_object"} if json_mode else None,
-                    temperature=0.7,
-                    max_tokens=2000
-                )
-                return response.choices[0].message.content
+                # Combine system and user prompts for Gemini
+                full_prompt = f"{system_prompt}\n\n{user_prompt}"
+                if json_mode:
+                    full_prompt += "\n\nRespond with valid JSON only."
+                
+                response = self.gemini_model.generate_content(full_prompt)
+                return response.text
             except Exception as e:
-                print(f"[LLM] OpenAI error: {e}")
-
-        # Try Anthropic
-        if self.anthropic_client:
-            try:
-                response = self.anthropic_client.messages.create(
-                    model="claude-3-haiku-20240307",  # Fast and cost-effective
-                    max_tokens=2000,
-                    system=system_prompt + ("\nRespond with valid JSON only." if json_mode else ""),
-                    messages=[{"role": "user", "content": user_prompt}]
-                )
-                return response.content[0].text
-            except Exception as e:
-                print(f"[LLM] Anthropic error: {e}")
+                print(f"[LLM] Gemini error: {e}")
 
         # No LLM available
         return None

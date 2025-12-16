@@ -3,6 +3,10 @@ PULSE Backend API
 FastAPI application entry point.
 """
 
+# Load environment variables from .env FIRST (before any other imports)
+from dotenv import load_dotenv
+load_dotenv()
+
 import os
 import asyncio
 from contextlib import asynccontextmanager
