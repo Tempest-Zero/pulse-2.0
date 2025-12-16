@@ -78,14 +78,21 @@ export async function apiRequest(endpoint, options = {}) {
 
     // Handle 401 Unauthorized - redirect to login
     if (response.status === 401) {
-      // Clear stored auth and redirect to login
       if (typeof window !== 'undefined') {
-        localStorage.removeItem('pulse_auth_token');
-        localStorage.removeItem('pulse_user');
-        // Only redirect if not already on auth page
-        if (!window.location.pathname.includes('/auth')) {
-          window.location.href = '/auth';
+        // Check if we actually have a token - if we do, this might be a stale request
+        // from before login completed. Don't logout in this case.
+        const currentToken = localStorage.getItem('pulse_auth_token');
+        if (!currentToken) {
+          // No token exists - user is definitely logged out
+          localStorage.removeItem('pulse_auth_token');
+          localStorage.removeItem('pulse_user');
+          // Only redirect if not already on auth page
+          if (!window.location.pathname.includes('/auth')) {
+            window.location.href = '/auth';
+          }
         }
+        // If token exists but request failed, it might be a race condition
+        // Don't logout - let the request fail silently and retry naturally
       }
       throw new Error('Session expired. Please log in again.');
     }
