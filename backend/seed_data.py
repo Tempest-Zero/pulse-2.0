@@ -234,11 +234,10 @@ def seed_moods(db: Session, user_id: int) -> list[MoodEntry]:
 
 
 def seed_schedule(db: Session, user_id: int) -> list[ScheduleBlock]:
-    """Create sample schedule blocks."""
-    # ScheduleBlock doesn't have user_id - it's global
-    existing_count = db.query(ScheduleBlock).count()
+    """Create sample schedule blocks for the user."""
+    existing_count = db.query(ScheduleBlock).filter(ScheduleBlock.user_id == user_id).count()
     if existing_count > 0:
-        print(f"[SEED] Schedule blocks already exist ({existing_count} blocks)")
+        print(f"[SEED] Schedule blocks already exist for user ({existing_count} blocks)")
         return []
 
     # Valid block_type values: 'fixed', 'focus', 'break', 'task'
@@ -260,7 +259,7 @@ def seed_schedule(db: Session, user_id: int) -> list[ScheduleBlock]:
 
     blocks = []
     for data in schedule_data:
-        block = ScheduleBlock(**data)
+        block = ScheduleBlock(user_id=user_id, **data)
         db.add(block)
         blocks.append(block)
 
@@ -270,11 +269,10 @@ def seed_schedule(db: Session, user_id: int) -> list[ScheduleBlock]:
 
 
 def seed_reflections(db: Session, user_id: int) -> list[Reflection]:
-    """Create sample reflections."""
-    # Reflections use date as unique key, not user_id
-    existing_count = db.query(Reflection).count()
+    """Create sample reflections for the user."""
+    existing_count = db.query(Reflection).filter(Reflection.user_id == user_id).count()
     if existing_count > 0:
-        print(f"[SEED] Reflections already exist ({existing_count} reflections)")
+        print(f"[SEED] Reflections already exist for user ({existing_count} reflections)")
         return []
 
     today = datetime.now(timezone.utc).date()
@@ -325,7 +323,7 @@ def seed_reflections(db: Session, user_id: int) -> list[Reflection]:
 
     reflections = []
     for data in reflections_data:
-        reflection = Reflection(**data)
+        reflection = Reflection(user_id=user_id, **data)
         db.add(reflection)
         reflections.append(reflection)
 
