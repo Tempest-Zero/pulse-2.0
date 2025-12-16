@@ -88,7 +88,7 @@ class LLMService:
 
             # Text generation model (JSON output)
             self.gemini_model = genai.GenerativeModel(
-                model_name="gemini-1.5-flash",
+                model_name="gemini-2.0-flash",
                 generation_config={
                     "temperature": 0.7,
                     "max_output_tokens": 2000,
@@ -98,7 +98,7 @@ class LLMService:
 
             # Vision model for image analysis (also supports JSON)
             self.gemini_vision_model = genai.GenerativeModel(
-                model_name="gemini-1.5-flash",
+                model_name="gemini-2.0-flash",
                 generation_config={
                     "temperature": 0.3,  # Lower temp for more accurate extraction
                     "max_output_tokens": 4000,
