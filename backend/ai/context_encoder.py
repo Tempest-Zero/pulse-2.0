@@ -23,14 +23,6 @@ class ContextEncoder:
     - Pending tasks → workload_pressure
     """
 
-    # Time block boundaries (hour of day)
-    TIME_BLOCKS = {
-        "morning": (6, 12),    # 06:00 - 12:00
-        "afternoon": (12, 18), # 12:00 - 18:00
-        "evening": (18, 22),   # 18:00 - 22:00
-        "night": (22, 6),      # 22:00 - 06:00 (wraps around)
-    }
-
     # Day names for mapping
     DAY_NAMES = [
         "monday", "tuesday", "wednesday", "thursday",
@@ -59,8 +51,8 @@ class ContextEncoder:
 
         user_id = AIConfig.get_user_id(user_id)
 
-        # Extract temporal features
-        time_block = self._map_hour_to_time_block(current_time.hour)
+        # Extract temporal features using config helper
+        time_block = AIConfig.get_time_block(current_time.hour)
         day_of_week = self._map_weekday_to_day_of_week(current_time.weekday())
 
         # Extract user state features from database
@@ -73,25 +65,6 @@ class ContextEncoder:
             energy_level=energy_level,
             workload_pressure=workload_pressure,
         )
-
-    def _map_hour_to_time_block(self, hour: int) -> str:
-        """
-        Map hour of day to time block.
-
-        Args:
-            hour: Hour (0-23)
-
-        Returns:
-            'morning', 'afternoon', 'evening', or 'night'
-        """
-        if 6 <= hour < 12:
-            return "morning"
-        elif 12 <= hour < 18:
-            return "afternoon"
-        elif 18 <= hour < 22:
-            return "evening"
-        else:
-            return "night"
 
     def _map_weekday_to_day_of_week(self, weekday: int) -> str:
         """
@@ -117,7 +90,7 @@ class ContextEncoder:
 
         Uses:
         - Latest mood score
-        - Time of day (morning boost)
+        - Time of day adjustments (configured in AIConfig)
         - Tasks completed today (fatigue factor)
 
         Returns:
@@ -136,7 +109,7 @@ class ContextEncoder:
         if latest_mood:
             mood_score = MoodMapper.get_score(latest_mood.mood)
         else:
-            mood_score = 5  # Neutral if no mood logged
+            mood_score = AIConfig.DEFAULT_MOOD_SCORE
 
         # Get tasks completed today for this user
         today_start = current_time.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -147,29 +120,29 @@ class ContextEncoder:
             Task.is_deleted == False
         ).count()
 
-        # Apply circadian rhythm boost
-        if time_block == "morning" and tasks_completed_today < 2:
-            mood_score += 1
+        # Apply circadian rhythm boost (morning with few tasks = fresh energy)
+        if time_block == "morning" and tasks_completed_today < AIConfig.MORNING_BOOST_MAX_TASKS:
+            mood_score += AIConfig.MORNING_ENERGY_BOOST
 
-        # Apply fatigue penalty
-        if tasks_completed_today >= 5:
-            mood_score -= 1
+        # Apply fatigue penalty (many tasks completed = cognitive depletion)
+        if tasks_completed_today >= AIConfig.FATIGUE_THRESHOLD_TASKS:
+            mood_score -= AIConfig.FATIGUE_PENALTY
 
         # Evening natural decline
         if time_block == "evening":
-            mood_score -= 1
+            mood_score -= AIConfig.EVENING_ENERGY_PENALTY
 
         # Night severe decline
         if time_block == "night":
-            mood_score -= 2
+            mood_score -= AIConfig.NIGHT_ENERGY_PENALTY
 
         # Clamp to 1-10
         mood_score = max(1, min(10, mood_score))
 
-        # Discretize to energy level
-        if mood_score >= 8:
+        # Discretize to energy level using config thresholds
+        if mood_score >= AIConfig.ENERGY_HIGH_THRESHOLD:
             return "high"
-        elif mood_score >= 5:
+        elif mood_score >= AIConfig.ENERGY_MEDIUM_THRESHOLD:
             return "medium"
         else:
             return "low"

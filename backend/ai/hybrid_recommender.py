@@ -148,7 +148,7 @@ class HybridRecommender:
         if phase == "bootstrap":
             return (
                 rule_action,
-                0.3,  # Low confidence during bootstrap
+                AIConfig.RULE_CONFIDENCE_BOOTSTRAP,
                 "rule",
                 f"🌱 Building your profile: {rule_explanation}"
             )
@@ -168,7 +168,7 @@ class HybridRecommender:
             else:
                 return (
                     rule_action,
-                    0.4,
+                    AIConfig.RULE_CONFIDENCE_TRANSITION,
                     "rule",
                     f"📊 Still learning: {rule_explanation}"
                 )
@@ -185,7 +185,7 @@ class HybridRecommender:
             # Fall back to rules for low confidence
             return (
                 rule_action,
-                0.5,
+                AIConfig.RULE_CONFIDENCE_LEARNED,
                 "hybrid",
                 f"Suggested based on your patterns: {rule_explanation}"
             )
