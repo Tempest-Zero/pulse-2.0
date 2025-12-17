@@ -9,6 +9,7 @@ import { getTasks, createTask, deleteTask, transformTask } from "@/lib/api/tasks
 import { getScheduleBlocks, createScheduleBlock, clearAllScheduleBlocks, transformScheduleBlock, uploadClassSchedule, getAvailableSlots, deleteScheduleBlock } from "@/lib/api/schedule"
 import { breakdownTask, generateAiSchedule } from "@/lib/api/ai"
 import { useToast } from "@/hooks/use-toast"
+import { useAuth } from "@/lib/auth-context"
 import {
   Dialog,
   DialogContent,
@@ -33,6 +34,7 @@ import { Calendar, Clock, Sparkles, Plus, Trash2, Zap, CalendarIcon, MessageSqua
 
 export default function SchedulePage() {
   const { toast } = useToast()
+  const { isAuthenticated, loading: authLoading } = useAuth()
   const [tasks, setTasks] = useState([])
   const [newTask, setNewTask] = useState("")
   const [duration, setDuration] = useState(60)
@@ -57,24 +59,28 @@ export default function SchedulePage() {
   const [selectedTaskId, setSelectedTaskId] = useState(null)
   const [reflectionReason, setReflectionReason] = useState("")
 
-  // Load tasks and schedule on mount
+  // Load tasks and schedule ONLY when authenticated
+  // This fixes the race condition where API calls fire before token is ready
   useEffect(() => {
+    if (authLoading || !isAuthenticated) {
+      return
+    }
     loadTasks()
     loadSchedule()
-  }, [])
+  }, [isAuthenticated, authLoading])
 
   const loadTasks = async () => {
     try {
       setLoading(true)
       const data = await getTasks(false) // Get incomplete tasks
       const transformed = data.map(transformTask)
-      
+
       // Load subtasks for each task
       for (const task of transformed) {
         const subtasks = data.filter(t => t.parentId === task.id || t.parent_id === task.id)
         task.subtasks = subtasks.map(transformTask)
       }
-      
+
       setTasks(transformed.filter(t => !t.parentId && !t.parent_id)) // Only show parent tasks
     } catch (error) {
       toast({
@@ -86,7 +92,7 @@ export default function SchedulePage() {
       setLoading(false)
     }
   }
-  
+
   const handleBreakdown = async (taskId) => {
     try {
       setBreakingDown(prev => new Set(prev).add(taskId))
@@ -110,7 +116,7 @@ export default function SchedulePage() {
       })
     }
   }
-  
+
   const toggleTaskExpansion = (taskId) => {
     setExpandedTasks(prev => {
       const newSet = new Set(prev)
@@ -318,11 +324,10 @@ export default function SchedulePage() {
                   tasks.map((task) => (
                     <div key={task.id}>
                       <div
-                        className={`flex items-center justify-between p-3 rounded-lg border transition-all ${
-                          task.done
-                            ? "bg-accent/10 border-accent/30"
-                            : "bg-muted/50 border-border/50"
-                        }`}
+                        className={`flex items-center justify-between p-3 rounded-lg border transition-all ${task.done
+                          ? "bg-accent/10 border-accent/30"
+                          : "bg-muted/50 border-border/50"
+                          }`}
                       >
                         <div className="flex items-center gap-3 flex-1">
                           {task.subtasks && task.subtasks.length > 0 && (
@@ -530,7 +535,7 @@ export default function SchedulePage() {
                   onChange={(e) => setTaskForm({ ...taskForm, name: e.target.value })}
                 />
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="task-description">Description (for AI breakdown)</Label>
                 <Textarea
@@ -685,11 +690,10 @@ export default function SchedulePage() {
                   <button
                     key={option.value}
                     onClick={() => setReflectionReason(option.value)}
-                    className={`w-full text-left p-3 rounded-lg border transition-all ${
-                      reflectionReason === option.value
-                        ? "border-accent bg-accent/10"
-                        : "border-border/50 hover:border-accent/50"
-                    }`}
+                    className={`w-full text-left p-3 rounded-lg border transition-all ${reflectionReason === option.value
+                      ? "border-accent bg-accent/10"
+                      : "border-border/50 hover:border-accent/50"
+                      }`}
                   >
                     {option.label}
                   </button>
