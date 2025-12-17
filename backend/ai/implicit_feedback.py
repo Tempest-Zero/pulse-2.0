@@ -3,7 +3,7 @@ Implicit Feedback Inferencer
 Infers recommendation outcomes from user behavior patterns.
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, TYPE_CHECKING
 from sqlalchemy.orm import Session
 
@@ -43,7 +43,7 @@ class ImplicitFeedbackInferencer:
             Inferred Outcome enum value
         """
         if current_time is None:
-            current_time = datetime.now()
+            current_time = datetime.now(timezone.utc)
         
         # If explicit outcome already set, use it
         if log.outcome:
@@ -97,8 +97,10 @@ class ImplicitFeedbackInferencer:
         
         # Check if task is completed
         if task.status == "completed" and task.completed_at:
-            # Calculate time taken
-            time_taken = task.completed_at - log.timestamp
+            # Calculate time taken - handle timezone-naive datetimes
+            completed_at = task.completed_at if task.completed_at.tzinfo else task.completed_at.replace(tzinfo=timezone.utc)
+            log_timestamp = log.timestamp if log.timestamp.tzinfo else log.timestamp.replace(tzinfo=timezone.utc)
+            time_taken = completed_at - log_timestamp
             
             # Get suggested duration for this action type
             try:
@@ -130,7 +132,10 @@ class ImplicitFeedbackInferencer:
         if not log.next_recommendation_at:
             return None
         
-        time_until_next = log.next_recommendation_at - log.timestamp
+        # Handle timezone-naive datetimes
+        next_rec_at = log.next_recommendation_at if log.next_recommendation_at.tzinfo else log.next_recommendation_at.replace(tzinfo=timezone.utc)
+        log_timestamp = log.timestamp if log.timestamp.tzinfo else log.timestamp.replace(tzinfo=timezone.utc)
+        time_until_next = next_rec_at - log_timestamp
         skip_threshold = timedelta(minutes=AIConfig.SKIP_DETECTION_MINUTES)
         
         if time_until_next <= skip_threshold:
@@ -154,8 +159,9 @@ class ImplicitFeedbackInferencer:
             if log.activity_gap_seconds >= ignore_threshold_seconds:
                 return Outcome.IGNORED
         
-        # Fall back to time since recommendation
-        time_since_rec = current_time - log.timestamp
+        # Fall back to time since recommendation - handle timezone-naive datetimes
+        log_timestamp = log.timestamp if log.timestamp.tzinfo else log.timestamp.replace(tzinfo=timezone.utc)
+        time_since_rec = current_time - log_timestamp
         ignore_threshold = timedelta(hours=AIConfig.IGNORE_DETECTION_HOURS)
         
         # Only mark as ignored if enough time has passed AND no completion
@@ -183,7 +189,7 @@ class ImplicitFeedbackInferencer:
         """
         from models.recommendation_log import RecommendationLog
         
-        current_time = datetime.now()
+        current_time = datetime.now(timezone.utc)
         cutoff_time = current_time - timedelta(hours=min_age_hours)
         
         # Find logs without outcomes that are old enough
@@ -196,7 +202,7 @@ class ImplicitFeedbackInferencer:
         for log in logs:
             outcome = self.infer_outcome(log, db, current_time)
             log.outcome = outcome.value
-            log.outcome_recorded_at = current_time
+            log.outcome_recorded_at = datetime.now(timezone.utc)
             processed += 1
         
         db.commit()
