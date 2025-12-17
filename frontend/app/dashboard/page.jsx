@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Navigation } from "@/components/navigation"
+import { useAuth } from "@/lib/auth-context"
 import { getTasks, createTask, updateTask, deleteTask, toggleTask, transformTask } from "@/lib/api/tasks"
 import { setMood, getCurrentMood } from "@/lib/api/mood"
 import { getScheduleBlocks, transformScheduleBlock } from "@/lib/api/schedule"
@@ -54,6 +55,7 @@ import {
 
 export default function DashboardPage() {
   const { toast } = useToast()
+  const { isAuthenticated, loading: authLoading } = useAuth()
   const [isInSession, setIsInSession] = useState(false)
   const [sessionTime, setSessionTime] = useState(25 * 60)
   const [initialSessionTime] = useState(25 * 60) // Store initial time for reset
@@ -86,8 +88,14 @@ export default function DashboardPage() {
   const [endDayNote, setEndDayNote] = useState("")
   const [submittingEndDay, setSubmittingEndDay] = useState(false)
 
-  // Fetch tasks, mood, schedule, and blocked apps count on mount
+  // Fetch tasks, mood, schedule, and blocked apps count ONLY when authenticated
+  // This fixes the race condition where API calls fire before token is ready
   useEffect(() => {
+    // Wait for auth to finish loading and ensure we're authenticated
+    if (authLoading || !isAuthenticated) {
+      return
+    }
+
     loadTasks()
     loadCurrentMood()
     loadSchedule()
@@ -113,7 +121,7 @@ export default function DashboardPage() {
       window.removeEventListener('storage', handleStorageChange)
       window.removeEventListener('blockedAppsUpdated', handleCustomStorageChange)
     }
-  }, [])
+  }, [isAuthenticated, authLoading])
 
   // Recalculate stats when tasks or todayReflection change
   useEffect(() => {
@@ -130,15 +138,15 @@ export default function DashboardPage() {
         calculateStats()
       }
     }
-    
+
     const handleReflectionSubmitted = () => {
       loadTodayReflection()
       calculateStats()
     }
-    
+
     document.addEventListener('visibilitychange', handleVisibilityChange)
     window.addEventListener('reflectionSubmitted', handleReflectionSubmitted)
-    
+
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange)
       window.removeEventListener('reflectionSubmitted', handleReflectionSubmitted)
@@ -226,7 +234,7 @@ export default function DashboardPage() {
       setBlockedAppsCount(0)
       return
     }
-    
+
     try {
       const savedBlockedApps = localStorage.getItem('blockedApps')
       if (savedBlockedApps) {
@@ -388,11 +396,10 @@ export default function DashboardPage() {
               <button
                 key={m.value}
                 onClick={() => handleMoodSelect(m.value)}
-                className={`flex flex-col items-center gap-2 p-4 rounded-2xl border-2 transition-all ${
-                  mood === m.value
-                    ? "border-accent bg-accent/10 scale-105"
-                    : "border-border/50 hover:border-accent/50 hover:scale-105"
-                }`}
+                className={`flex flex-col items-center gap-2 p-4 rounded-2xl border-2 transition-all ${mood === m.value
+                  ? "border-accent bg-accent/10 scale-105"
+                  : "border-border/50 hover:border-accent/50 hover:scale-105"
+                  }`}
               >
                 <span className="text-3xl">{m.emoji}</span>
                 <span className="text-sm font-medium">{m.label}</span>
@@ -407,7 +414,7 @@ export default function DashboardPage() {
         </Card>
 
         {/* AI Recommendation */}
-        <AIRecommendation 
+        <AIRecommendation
           onStartFocus={(task) => {
             // Start focus session with recommended task
             setSessionTime(task.duration * 60)
@@ -450,9 +457,9 @@ export default function DashboardPage() {
                       </>
                     )}
                   </Button>
-                  <Button 
-                    variant="outline" 
-                    size="lg" 
+                  <Button
+                    variant="outline"
+                    size="lg"
                     className="rounded-2xl bg-transparent"
                     onClick={() => {
                       setIsInSession(false)
@@ -518,11 +525,10 @@ export default function DashboardPage() {
                   tasks.map((item, i) => (
                     <div
                       key={item.id || i}
-                      className={`flex items-center justify-between p-4 rounded-xl border transition-all ${
-                        item.done
-                          ? "bg-accent/10 border-accent/30"
-                          : "bg-muted/30 border-border/50 hover:border-accent/50"
-                      }`}
+                      className={`flex items-center justify-between p-4 rounded-xl border transition-all ${item.done
+                        ? "bg-accent/10 border-accent/30"
+                        : "bg-muted/30 border-border/50 hover:border-accent/50"
+                        }`}
                     >
                       <div className="flex items-center gap-3 flex-1">
                         {item.done ? (
@@ -764,9 +770,8 @@ export default function DashboardPage() {
                           <button
                             key={value}
                             onClick={() => setEndDayMood(value)}
-                            className={`text-3xl transition-transform ${
-                              endDayMood === value ? "scale-125" : "opacity-50 hover:opacity-75"
-                            }`}
+                            className={`text-3xl transition-transform ${endDayMood === value ? "scale-125" : "opacity-50 hover:opacity-75"
+                              }`}
                           >
                             {value === 1 && "😡"}
                             {value === 2 && "😓"}
@@ -803,11 +808,10 @@ export default function DashboardPage() {
                                 setSelectedDistractions([...selectedDistractions, distraction.id])
                               }
                             }}
-                            className={`flex items-center gap-2 p-3 rounded-lg border transition-all ${
-                              isSelected
-                                ? "border-accent bg-accent/10"
-                                : "border-border/50 hover:border-accent/50"
-                            }`}
+                            className={`flex items-center gap-2 p-3 rounded-lg border transition-all ${isSelected
+                              ? "border-accent bg-accent/10"
+                              : "border-border/50 hover:border-accent/50"
+                              }`}
                           >
                             <Icon className={`w-4 h-4 ${isSelected ? "text-accent" : "text-muted-foreground"}`} />
                             <span className={`text-sm ${isSelected ? "font-medium" : ""}`}>{distraction.label}</span>
@@ -870,7 +874,7 @@ export default function DashboardPage() {
                         setEndDayMood(3)
                         setSelectedDistractions([])
                         setEndDayNote("")
-                        
+
                         // Trigger event for streak update
                         window.dispatchEvent(new Event('reflectionSubmitted'))
                       } catch (error) {
@@ -903,13 +907,13 @@ export default function DashboardPage() {
               </div>
               <div className="text-5xl font-bold mb-2">{stats.streak} {stats.streak === 1 ? 'day' : 'days'}</div>
               <p className="text-sm text-muted-foreground">
-                {stats.streak === 0 
-                  ? "Start your streak by completing a check-in today!" 
-                  : stats.streak < 3 
-                  ? "Keep it going! You're building momentum 💪"
-                  : stats.streak < 7
-                  ? "You're on a roll! Keep it going bestie"
-                  : "Incredible streak! You're unstoppable 🔥"}
+                {stats.streak === 0
+                  ? "Start your streak by completing a check-in today!"
+                  : stats.streak < 3
+                    ? "Keep it going! You're building momentum 💪"
+                    : stats.streak < 7
+                      ? "You're on a roll! Keep it going bestie"
+                      : "Incredible streak! You're unstoppable 🔥"}
               </p>
             </Card>
 
@@ -924,15 +928,15 @@ export default function DashboardPage() {
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-sm text-muted-foreground">Focus time</span>
                     <span className="font-bold">
-                      {Math.floor(stats.focusTime / 60) > 0 
+                      {Math.floor(stats.focusTime / 60) > 0
                         ? `${Math.floor(stats.focusTime / 60)}h ${stats.focusTime % 60}min`
                         : `${stats.focusTime}min`}
                     </span>
                   </div>
                   <div className="w-full bg-muted rounded-full h-2">
-                    <div 
-                      className="bg-accent rounded-full h-2" 
-                      style={{ width: `${Math.min(100, (stats.focusTime / stats.focusTimeGoal) * 100)}%` }} 
+                    <div
+                      className="bg-accent rounded-full h-2"
+                      style={{ width: `${Math.min(100, (stats.focusTime / stats.focusTimeGoal) * 100)}%` }}
                     />
                   </div>
                 </div>
@@ -944,9 +948,9 @@ export default function DashboardPage() {
                     </span>
                   </div>
                   <div className="w-full bg-muted rounded-full h-2">
-                    <div 
-                      className="bg-chart-2 rounded-full h-2" 
-                      style={{ width: `${stats.totalTasks > 0 ? (stats.tasksCompleted / stats.totalTasks) * 100 : 0}%` }} 
+                    <div
+                      className="bg-chart-2 rounded-full h-2"
+                      style={{ width: `${stats.totalTasks > 0 ? (stats.tasksCompleted / stats.totalTasks) * 100 : 0}%` }}
                     />
                   </div>
                 </div>
@@ -956,9 +960,9 @@ export default function DashboardPage() {
                     <span className="font-bold">{stats.distractionsBlocked}</span>
                   </div>
                   <div className="w-full bg-muted rounded-full h-2">
-                    <div 
-                      className="bg-chart-4 rounded-full h-2" 
-                      style={{ width: `${Math.min(100, (stats.distractionsBlocked / Math.max(1, blockedAppsCount)) * 100)}%` }} 
+                    <div
+                      className="bg-chart-4 rounded-full h-2"
+                      style={{ width: `${Math.min(100, (stats.distractionsBlocked / Math.max(1, blockedAppsCount)) * 100)}%` }}
                     />
                   </div>
                 </div>
@@ -977,14 +981,14 @@ export default function DashboardPage() {
                     {stats.tasksCompleted === 0 && stats.totalTasks > 0
                       ? "Start with your easiest task to build momentum! 🚀"
                       : stats.tasksCompleted === stats.totalTasks && stats.totalTasks > 0
-                      ? "Amazing! You've completed all your tasks today! 🎉"
-                      : stats.tasksCompleted / stats.totalTasks < 0.5 && stats.totalTasks > 0
-                      ? "You're making progress! Try focusing on one task at a time 💪"
-                      : stats.focusTime < 60
-                      ? "Build your focus time gradually. Start with 25-minute sessions! ⏱️"
-                      : schedule.length > 0
-                      ? "Your schedule is set! Follow it to maximize productivity 🎯"
-                      : "Create a schedule to organize your day better! 📅"}
+                        ? "Amazing! You've completed all your tasks today! 🎉"
+                        : stats.tasksCompleted / stats.totalTasks < 0.5 && stats.totalTasks > 0
+                          ? "You're making progress! Try focusing on one task at a time 💪"
+                          : stats.focusTime < 60
+                            ? "Build your focus time gradually. Start with 25-minute sessions! ⏱️"
+                            : schedule.length > 0
+                              ? "Your schedule is set! Follow it to maximize productivity 🎯"
+                              : "Create a schedule to organize your day better! 📅"}
                   </p>
                 </div>
               </div>
@@ -997,14 +1001,14 @@ export default function DashboardPage() {
                   <Coffee className="w-12 h-12 mx-auto mb-3 text-chart-3" />
                   <h3 className="font-bold mb-2">Time for a break?</h3>
                   <p className="text-sm text-muted-foreground mb-4">
-                    {stats.focusTime >= 120 
+                    {stats.focusTime >= 120
                       ? `You've been grinding for ${Math.floor(stats.focusTime / 60)} hours straight`
                       : stats.focusTime >= 60
-                      ? `You've been working for over an hour`
-                      : `You've been focused for ${stats.focusTime} minutes`}
+                        ? `You've been working for over an hour`
+                        : `You've been focused for ${stats.focusTime} minutes`}
                   </p>
-                  <Button 
-                    size="sm" 
+                  <Button
+                    size="sm"
                     className="w-full"
                     onClick={() => {
                       setIsInSession(false)

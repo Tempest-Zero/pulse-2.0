@@ -6,10 +6,12 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { getRecommendation, submitFeedback, getPhase } from "@/lib/api/ai"
 import { useToast } from "@/hooks/use-toast"
+import { useAuth } from "@/lib/auth-context"
 import { Sparkles, CheckCircle2, XCircle, Minus, RefreshCw, Loader2, Target, Zap, Coffee, Brain, Calendar } from "lucide-react"
 
 export function AIRecommendation({ onTaskSelect, onStartFocus }) {
   const { toast } = useToast()
+  const { isAuthenticated, loading: authLoading } = useAuth()
   const [recommendation, setRecommendation] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -44,10 +46,14 @@ export function AIRecommendation({ onTaskSelect, onStartFocus }) {
     }
   }
 
+  // Only load when authenticated to prevent 401 race condition
   useEffect(() => {
+    if (authLoading || !isAuthenticated) {
+      return
+    }
     loadRecommendation()
     loadPhase()
-  }, [])
+  }, [isAuthenticated, authLoading])
 
   const handleAccept = () => {
     if (recommendation?.suggested_task) {
@@ -73,12 +79,12 @@ export function AIRecommendation({ onTaskSelect, onStartFocus }) {
         outcome,
         rating,
       })
-      
+
       toast({
         title: "Feedback submitted",
         description: "Thanks for helping the AI learn!",
       })
-      
+
       // Reload recommendation after feedback
       await loadRecommendation()
     } catch (err) {
@@ -237,7 +243,7 @@ export function AIRecommendation({ onTaskSelect, onStartFocus }) {
               Start Task
             </Button>
           )}
-          
+
           <div className="flex gap-1">
             <Button
               variant="outline"
