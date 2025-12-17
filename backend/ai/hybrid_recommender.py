@@ -3,7 +3,7 @@ Hybrid Recommender
 Main orchestrator combining RL agent, rule engine, and supporting systems.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, Dict, Any, Tuple
 from sqlalchemy.orm import Session
 from dataclasses import dataclass
@@ -78,7 +78,7 @@ class HybridRecommender:
             RecommendationResult with action, explanation, confidence, etc.
         """
         if current_time is None:
-            current_time = datetime.now()
+            current_time = datetime.now(timezone.utc)
         
         user_id = AIConfig.get_user_id(user_id)
         
