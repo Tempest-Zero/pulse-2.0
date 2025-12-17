@@ -6,7 +6,21 @@ node_modules/
 # Next.js
 .next/
 out/
+
+# C++ Build
 build/
+bin/
+*.o
+*.d
+*.exe
+
+# Generated data
+data/input/*.pgm
+data/input/*.ppm
+data/output/*.pgm
+data/output/*.ppm
+benchmark_results.csv
+plots/
 
 # Python
 __pycache__/
