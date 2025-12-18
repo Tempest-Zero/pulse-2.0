@@ -32,19 +32,8 @@ tzdata==2025.2
 uvicorn==0.38.0
 websockets==15.0.1
 
-# AI/ML dependencies (CPU-only for Railway - much faster to install)
-numpy==1.26.4
-pandas==2.2.3
-scikit-learn==1.4.0
-matplotlib==3.8.2
-google-generativeai>=0.8.0
-
-# PyTorch CPU-only (Railway doesn't have GPU, this is ~200MB vs ~2GB)
---extra-index-url https://download.pytorch.org/whl/cpu
-torch==2.2.0+cpu
-torchvision==0.17.0+cpu
-
 # Authentication
 passlib[bcrypt]==1.7.4
 email-validator>=2.0.0
 python-jose[cryptography]==3.3.0
+

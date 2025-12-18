@@ -6,7 +6,7 @@
 
 ```
 Pulse 2.0/
-├── backend/          # FastAPI Python backend (AI recommendation engine)
+├── backend/          # FastAPI Python backend
 ├── frontend/         # Next.js 16 React app (dashboard UI)
 ├── pulse-extension/  # Chrome/Firefox extension (activity tracking)
 ├── docs/             # Documentation and reports

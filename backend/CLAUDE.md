@@ -15,7 +15,6 @@ backend/
 │   ├── schedule_router.py
 │   ├── mood_router.py
 │   ├── reflections_router.py
-│   ├── ai_router.py     # /ai/recommendation
 │   └── extension_router.py
 ├── models/              # SQLAlchemy ORM models
 │   ├── base.py          # DB engine, init_db(), get_db()
@@ -24,11 +23,6 @@ backend/
 │   └── ...
 ├── crud/                # Database CRUD operations
 ├── schema/              # Pydantic request/response schemas
-├── ai/                  # RL-based recommendation engine
-│   ├── agent.py         # Main AI agent
-│   ├── dqn_agent.py     # Deep Q-Network
-│   ├── hybrid_recommender.py
-│   └── ...
 ├── migrations/          # SQL migration scripts
 │   └── 001_add_auth_columns.sql
 └── tests/               # Pytest test suite
@@ -103,8 +97,8 @@ Configured in `railway.json` and `nixpacks.toml`:
 | `/auth/signup` | POST | Create account |
 | `/auth/login` | POST | Get JWT token |
 | `/auth/me` | GET | Get current user (requires token) |
-| `/ai/recommendation` | GET | Get AI productivity recommendation |
 | `/tasks` | GET/POST | Task management |
+| `/schedule` | GET/POST | Schedule management |
 
 ## Common Gotchas
 
@@ -125,3 +119,4 @@ Configured in `railway.json` and `nixpacks.toml`:
 ### Import Errors on Startup
 - Check Railway deploy logs for missing dependencies
 - Common: `email-validator`, `python-jose`, `passlib`
+

@@ -9,7 +9,7 @@ import { setMood, getCurrentMood } from "@/lib/api/mood"
 import { getScheduleBlocks, transformScheduleBlock } from "@/lib/api/schedule"
 import { getReflections, getTodayReflection, createReflection } from "@/lib/api/reflections"
 import { useToast } from "@/hooks/use-toast"
-import { AIRecommendation } from "@/components/ai-recommendation"
+
 import {
   Dialog,
   DialogContent,
@@ -406,18 +406,7 @@ export default function DashboardPage() {
           )}
         </Card>
 
-        {/* AI Recommendation */}
-        <AIRecommendation 
-          onStartFocus={(task) => {
-            // Start focus session with recommended task
-            setSessionTime(task.duration * 60)
-            setIsInSession(true)
-            toast({
-              title: "Focus session started",
-              description: `Starting focus on: ${task.title}`,
-            })
-          }}
-        />
+
 
         <div className="grid lg:grid-cols-3 gap-6">
           {/* Focus Session - Main Column */}

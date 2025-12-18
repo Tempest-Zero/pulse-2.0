@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { getTasks, createTask, deleteTask, transformTask } from "@/lib/api/tasks"
 import { getScheduleBlocks, createScheduleBlock, clearAllScheduleBlocks, transformScheduleBlock, uploadClassSchedule, getAvailableSlots, deleteScheduleBlock } from "@/lib/api/schedule"
-import { breakdownTask, generateAiSchedule } from "@/lib/api/ai"
+
 import { useToast } from "@/hooks/use-toast"
 import {
   Dialog,
@@ -68,13 +68,13 @@ export default function SchedulePage() {
       setLoading(true)
       const data = await getTasks(false) // Get incomplete tasks
       const transformed = data.map(transformTask)
-      
+
       // Load subtasks for each task
       for (const task of transformed) {
         const subtasks = data.filter(t => t.parentId === task.id || t.parent_id === task.id)
         task.subtasks = subtasks.map(transformTask)
       }
-      
+
       setTasks(transformed.filter(t => !t.parentId && !t.parent_id)) // Only show parent tasks
     } catch (error) {
       toast({
@@ -86,31 +86,16 @@ export default function SchedulePage() {
       setLoading(false)
     }
   }
-  
+
   const handleBreakdown = async (taskId) => {
-    try {
-      setBreakingDown(prev => new Set(prev).add(taskId))
-      const result = await breakdownTask(taskId)
-      await loadTasks()
-      toast({
-        title: "Task broken down",
-        description: result.message,
-      })
-    } catch (error) {
-      toast({
-        title: "Error breaking down task",
-        description: error.message,
-        variant: "destructive",
-      })
-    } finally {
-      setBreakingDown(prev => {
-        const newSet = new Set(prev)
-        newSet.delete(taskId)
-        return newSet
-      })
-    }
+    // AI breakdown feature has been removed
+    toast({
+      title: "Feature not available",
+      description: "AI task breakdown is currently disabled.",
+      variant: "destructive",
+    })
   }
-  
+
   const toggleTaskExpansion = (taskId) => {
     setExpandedTasks(prev => {
       const newSet = new Set(prev)
@@ -162,34 +147,60 @@ export default function SchedulePage() {
     setGenerating(true)
 
     try {
-      // Call backend AI schedule generation endpoint
-      const result = await generateAiSchedule()
+      // Simple schedule generation without AI
+      // Get available slots from the backend
+      const slotsResponse = await getAvailableSlots(9, 20, 1)
+      const availableSlots = slotsResponse.available_slots || []
 
-      if (result.blocks && result.blocks.length > 0) {
-        // Transform and add AI tips to blocks
-        const blocksWithTips = result.blocks.map(block => ({
-          ...transformScheduleBlock(block),
-          aiTip: getAITip(block.title)
-        }))
+      if (availableSlots.length === 0) {
+        toast({
+          title: "No available slots",
+          description: "No time slots available for scheduling",
+          variant: "destructive",
+        })
+        return
+      }
 
-        setSchedule(blocksWithTips)
+      // Create blocks for each task in available slots
+      const newBlocks = []
+      let slotIndex = 0
 
+      for (const task of tasks) {
+        if (slotIndex >= availableSlots.length) break
+
+        const slot = availableSlots[slotIndex]
+        const taskDuration = task.duration / 60 // Convert to hours
+
+        if (slot.duration >= taskDuration) {
+          const block = await createScheduleBlock({
+            title: task.name,
+            start: slot.start,
+            duration: task.duration,
+            block_type: "task",
+            task_id: task.id
+          })
+
+          newBlocks.push({
+            ...transformScheduleBlock(block),
+            aiTip: getAITip(task.name)
+          })
+
+          // Move to next slot if current one is used up
+          slotIndex++
+        }
+      }
+
+      if (newBlocks.length > 0) {
+        setSchedule(newBlocks)
         toast({
           title: "Schedule generated",
-          description: result.message || `Created ${result.blocks.length} task blocks`,
+          description: `Created ${newBlocks.length} task blocks`,
         })
-
-        if (result.unscheduled_tasks > 0) {
-          toast({
-            title: "Some tasks could not be scheduled",
-            description: `${result.unscheduled_tasks} task(s) didn't fit in available time slots`,
-            variant: "destructive",
-          })
-        }
       } else {
         toast({
           title: "No schedule generated",
-          description: result.message || "No tasks were scheduled",
+          description: "Tasks could not fit in available time slots",
+          variant: "destructive",
         })
       }
     } catch (error) {
@@ -318,11 +329,10 @@ export default function SchedulePage() {
                   tasks.map((task) => (
                     <div key={task.id}>
                       <div
-                        className={`flex items-center justify-between p-3 rounded-lg border transition-all ${
-                          task.done
+                        className={`flex items-center justify-between p-3 rounded-lg border transition-all ${task.done
                             ? "bg-accent/10 border-accent/30"
                             : "bg-muted/50 border-border/50"
-                        }`}
+                          }`}
                       >
                         <div className="flex items-center gap-3 flex-1">
                           {task.subtasks && task.subtasks.length > 0 && (
@@ -530,7 +540,7 @@ export default function SchedulePage() {
                   onChange={(e) => setTaskForm({ ...taskForm, name: e.target.value })}
                 />
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="task-description">Description (for AI breakdown)</Label>
                 <Textarea
@@ -685,11 +695,10 @@ export default function SchedulePage() {
                   <button
                     key={option.value}
                     onClick={() => setReflectionReason(option.value)}
-                    className={`w-full text-left p-3 rounded-lg border transition-all ${
-                      reflectionReason === option.value
+                    className={`w-full text-left p-3 rounded-lg border transition-all ${reflectionReason === option.value
                         ? "border-accent bg-accent/10"
                         : "border-border/50 hover:border-accent/50"
-                    }`}
+                      }`}
                   >
                     {option.label}
                   </button>
