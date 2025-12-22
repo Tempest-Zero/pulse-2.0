@@ -5,11 +5,23 @@ import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Navigation } from "@/components/navigation"
 import { Shield, Bell, Clock, Smartphone, Monitor, Moon, Sun } from "lucide-react"
+import { useAuth } from "@/lib/auth-context"
 
 export default function SettingsPage() {
+  const { user } = useAuth()
   const [darkMode, setDarkMode] = useState(true)
   const [notifications, setNotifications] = useState(true)
   const [smartBlocking, setSmartBlocking] = useState(true)
+  const [profileName, setProfileName] = useState("")
+  const [profileEmail, setProfileEmail] = useState("")
+
+  // Load user data from auth context
+  useEffect(() => {
+    if (user) {
+      setProfileName(user.username || user.name || "")
+      setProfileEmail(user.email || "")
+    }
+  }, [user])
 
   // Load blocked apps from localStorage or use defaults
   const loadBlockedApps = () => {
@@ -70,13 +82,15 @@ export default function SettingsPage() {
                 type="text"
                 placeholder="Your name"
                 className="w-full bg-muted px-4 py-3 rounded-lg mb-3 font-medium"
-                defaultValue="Alex"
+                value={profileName}
+                onChange={(e) => setProfileName(e.target.value)}
               />
               <input
                 type="email"
                 placeholder="Email"
                 className="w-full bg-muted px-4 py-3 rounded-lg font-medium"
-                defaultValue="alex@pulse.app"
+                value={profileEmail}
+                onChange={(e) => setProfileEmail(e.target.value)}
               />
             </div>
           </div>
@@ -98,9 +112,8 @@ export default function SettingsPage() {
               className={`w-14 h-8 rounded-full transition-colors ${smartBlocking ? "bg-accent" : "bg-muted"} relative`}
             >
               <div
-                className={`w-6 h-6 rounded-full bg-white absolute top-1 transition-transform ${
-                  smartBlocking ? "translate-x-7" : "translate-x-1"
-                }`}
+                className={`w-6 h-6 rounded-full bg-white absolute top-1 transition-transform ${smartBlocking ? "translate-x-7" : "translate-x-1"
+                  }`}
               />
             </button>
           </div>
@@ -113,14 +126,12 @@ export default function SettingsPage() {
                 </div>
                 <button
                   onClick={() => updateBlockedApp(i, !app.blocked)}
-                  className={`w-12 h-7 rounded-full transition-colors ${
-                    app.blocked ? "bg-accent" : "bg-border"
-                  } relative`}
+                  className={`w-12 h-7 rounded-full transition-colors ${app.blocked ? "bg-accent" : "bg-border"
+                    } relative`}
                 >
                   <div
-                    className={`w-5 h-5 rounded-full bg-white absolute top-1 transition-transform ${
-                      app.blocked ? "translate-x-6" : "translate-x-1"
-                    }`}
+                    className={`w-5 h-5 rounded-full bg-white absolute top-1 transition-transform ${app.blocked ? "translate-x-6" : "translate-x-1"
+                      }`}
                   />
                 </button>
               </div>
@@ -179,9 +190,8 @@ export default function SettingsPage() {
               className={`w-14 h-8 rounded-full transition-colors ${notifications ? "bg-accent" : "bg-muted"} relative`}
             >
               <div
-                className={`w-6 h-6 rounded-full bg-white absolute top-1 transition-transform ${
-                  notifications ? "translate-x-7" : "translate-x-1"
-                }`}
+                className={`w-6 h-6 rounded-full bg-white absolute top-1 transition-transform ${notifications ? "translate-x-7" : "translate-x-1"
+                  }`}
               />
             </button>
           </div>
@@ -195,14 +205,12 @@ export default function SettingsPage() {
               <div key={i} className="flex items-center justify-between p-3 bg-muted rounded-lg">
                 <span className="font-medium">{item.label}</span>
                 <button
-                  className={`w-12 h-7 rounded-full transition-colors ${
-                    item.enabled ? "bg-accent" : "bg-border"
-                  } relative`}
+                  className={`w-12 h-7 rounded-full transition-colors ${item.enabled ? "bg-accent" : "bg-border"
+                    } relative`}
                 >
                   <div
-                    className={`w-5 h-5 rounded-full bg-white absolute top-1 transition-transform ${
-                      item.enabled ? "translate-x-6" : "translate-x-1"
-                    }`}
+                    className={`w-5 h-5 rounded-full bg-white absolute top-1 transition-transform ${item.enabled ? "translate-x-6" : "translate-x-1"
+                      }`}
                   />
                 </button>
               </div>
@@ -257,9 +265,8 @@ export default function SettingsPage() {
               className={`w-14 h-8 rounded-full transition-colors ${darkMode ? "bg-accent" : "bg-border"} relative`}
             >
               <div
-                className={`w-6 h-6 rounded-full bg-white absolute top-1 transition-transform ${
-                  darkMode ? "translate-x-7" : "translate-x-1"
-                }`}
+                className={`w-6 h-6 rounded-full bg-white absolute top-1 transition-transform ${darkMode ? "translate-x-7" : "translate-x-1"
+                  }`}
               />
             </button>
           </div>
