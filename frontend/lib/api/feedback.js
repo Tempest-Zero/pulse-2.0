@@ -1,44 +1,9 @@
-import { API_BASE_URL } from './config';
-import { getStoredToken } from '../auth-context';
+import { apiRequest, publicApiRequest } from './config';
 
 /**
  * Feedback API Service
  * Handles user ratings and reviews for the app.
  */
-
-/**
- * Helper function to make API requests
- */
-async function feedbackRequest(endpoint, options = {}) {
-    const url = `${API_BASE_URL}${endpoint}`;
-    const headers = {
-        'Content-Type': 'application/json',
-        ...options.headers,
-    };
-
-    // Add auth header if token exists
-    const token = getStoredToken();
-    if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-    }
-
-    const response = await fetch(url, {
-        ...options,
-        headers,
-    });
-
-    if (!response.ok) {
-        const error = await response.json().catch(() => ({ detail: 'Request failed' }));
-        throw new Error(error.detail || 'Request failed');
-    }
-
-    // Handle 204 No Content
-    if (response.status === 204) {
-        return null;
-    }
-
-    return response.json();
-}
 
 /**
  * Submit new feedback (requires authentication)
@@ -48,7 +13,7 @@ async function feedbackRequest(endpoint, options = {}) {
  * @param {string} feedbackData.review - Optional review text
  */
 export async function submitFeedback(feedbackData) {
-    return feedbackRequest('/feedback/', {
+    return apiRequest('/feedback/', {
         method: 'POST',
         body: JSON.stringify({
             rating: feedbackData.rating,
@@ -63,7 +28,7 @@ export async function submitFeedback(feedbackData) {
  * @param {number} limit - Maximum number of feedback entries to return
  */
 export async function getAllFeedback(limit = 50) {
-    return feedbackRequest(`/feedback/all?limit=${limit}`);
+    return publicApiRequest(`/feedback/all?limit=${limit}`);
 }
 
 /**
@@ -71,14 +36,14 @@ export async function getAllFeedback(limit = 50) {
  * @param {number} limit - Maximum number of feedback entries to return
  */
 export async function getUserFeedback(limit = 10) {
-    return feedbackRequest(`/feedback/?limit=${limit}`);
+    return apiRequest(`/feedback/?limit=${limit}`);
 }
 
 /**
  * Get feedback statistics (public - no auth required)
  */
 export async function getFeedbackStats() {
-    return feedbackRequest('/feedback/stats');
+    return publicApiRequest('/feedback/stats');
 }
 
 /**
@@ -86,7 +51,7 @@ export async function getFeedbackStats() {
  * @param {number} feedbackId - ID of the feedback to delete
  */
 export async function deleteFeedback(feedbackId) {
-    return feedbackRequest(`/feedback/${feedbackId}`, {
+    return apiRequest(`/feedback/${feedbackId}`, {
         method: 'DELETE',
     });
 }
