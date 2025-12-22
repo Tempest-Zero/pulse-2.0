@@ -1,15 +1,23 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { Sparkles, LayoutDashboard, TrendingUp, Settings, Menu, X, CalendarDays } from "lucide-react"
+import { Sparkles, LayoutDashboard, TrendingUp, Settings, Menu, X, CalendarDays, LogOut } from "lucide-react"
 import { useState } from "react"
+import { useAuth } from "@/lib/auth-context"
 
 export function Navigation() {
   const pathname = usePathname()
+  const router = useRouter()
+  const { logout, isAuthenticated } = useAuth()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const isLanding = pathname === "/"
+
+  const handleSignOut = () => {
+    logout()
+    router.push("/")
+  }
 
   const navLinks = isLanding
     ? [
@@ -60,11 +68,21 @@ export function Navigation() {
               </Button>
             </>
           ) : (
-            <Button variant="ghost" size="icon" asChild>
-              <Link href="/settings">
-                <Settings className="w-5 h-5" />
-              </Link>
-            </Button>
+            <>
+              <Button variant="ghost" size="icon" asChild>
+                <Link href="/settings">
+                  <Settings className="w-5 h-5" />
+                </Link>
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={handleSignOut}
+                className="flex items-center gap-2 text-muted-foreground hover:text-foreground"
+              >
+                <LogOut className="w-4 h-4" />
+                Sign Out
+              </Button>
+            </>
           )}
         </div>
 
@@ -84,8 +102,8 @@ export function Navigation() {
                 href={link.href}
                 onClick={() => setMobileMenuOpen(false)}
                 className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${pathname === link.href
-                    ? "bg-accent/20 text-accent font-semibold"
-                    : "text-muted-foreground hover:bg-muted"
+                  ? "bg-accent/20 text-accent font-semibold"
+                  : "text-muted-foreground hover:bg-muted"
                   }`}
               >
                 {link.icon && <link.icon className="w-4 h-4" />}
@@ -105,7 +123,21 @@ export function Navigation() {
                   </Link>
                 </Button>
               </div>
-            ) : null}
+            ) : (
+              <div className="flex flex-col gap-2 pt-4 border-t border-border/50">
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    setMobileMenuOpen(false)
+                    handleSignOut()
+                  }}
+                  className="flex items-center gap-2 justify-start text-muted-foreground hover:text-foreground"
+                >
+                  <LogOut className="w-4 h-4" />
+                  Sign Out
+                </Button>
+              </div>
+            )}
           </div>
         </div>
       )}
