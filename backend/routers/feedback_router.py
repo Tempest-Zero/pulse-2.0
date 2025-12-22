@@ -33,6 +33,7 @@ class FeedbackResponse(BaseModel):
     """Response for a single feedback entry."""
     id: int
     userId: int
+    username: Optional[str] = None
     rating: int
     category: str
     review: Optional[str]
@@ -58,6 +59,7 @@ def create_feedback(
 ):
     """
     Submit new feedback for the app.
+    Requires authentication.
     
     - **rating**: Required rating from 1-5 stars
     - **category**: Optional category (general, feature, bug, improvement)
@@ -74,7 +76,9 @@ def create_feedback(
         db.commit()
         db.refresh(feedback)
         
-        return FeedbackResponse(**feedback.to_dict())
+        response_data = feedback.to_dict()
+        response_data["username"] = current_user.username
+        return FeedbackResponse(**response_data)
     except Exception as e:
         db.rollback()
         raise HTTPException(
@@ -83,33 +87,38 @@ def create_feedback(
         )
 
 
-@router.get("/", response_model=List[FeedbackResponse])
-def get_user_feedback(
+@router.get("/all", response_model=List[FeedbackResponse])
+def get_all_feedback(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-    limit: int = 10
+    limit: int = 50
 ):
     """
-    Get current user's feedback history.
+    Get all feedback from all users (public endpoint - no auth required).
+    Shows latest feedback first.
     """
     feedback_list = (
-        db.query(Feedback)
-        .filter(Feedback.user_id == current_user.id)
+        db.query(Feedback, User)
+        .join(User, Feedback.user_id == User.id)
         .order_by(Feedback.created_at.desc())
         .limit(limit)
         .all()
     )
     
-    return [FeedbackResponse(**f.to_dict()) for f in feedback_list]
+    result = []
+    for feedback, user in feedback_list:
+        data = feedback.to_dict()
+        data["username"] = user.username
+        result.append(FeedbackResponse(**data))
+    
+    return result
 
 
 @router.get("/stats", response_model=FeedbackStats)
 def get_feedback_stats(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    db: Session = Depends(get_db)
 ):
     """
-    Get overall feedback statistics (admin use or for showing appreciation).
+    Get overall feedback statistics (public endpoint).
     """
     # Get total count
     total = db.query(func.count(Feedback.id)).scalar() or 0
@@ -128,6 +137,32 @@ def get_feedback_stats(
         averageRating=round(float(avg_rating), 2),
         ratingDistribution=distribution
     )
+
+
+@router.get("/", response_model=List[FeedbackResponse])
+def get_user_feedback(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    limit: int = 10
+):
+    """
+    Get current user's feedback history (requires auth).
+    """
+    feedback_list = (
+        db.query(Feedback)
+        .filter(Feedback.user_id == current_user.id)
+        .order_by(Feedback.created_at.desc())
+        .limit(limit)
+        .all()
+    )
+    
+    result = []
+    for f in feedback_list:
+        data = f.to_dict()
+        data["username"] = current_user.username
+        result.append(FeedbackResponse(**data))
+    
+    return result
 
 
 @router.delete("/{feedback_id}", status_code=status.HTTP_204_NO_CONTENT)

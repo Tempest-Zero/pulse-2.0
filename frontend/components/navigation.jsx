@@ -24,6 +24,7 @@ export function Navigation() {
       { href: "#features", label: "Features" },
       { href: "#how-it-works", label: "How it Works" },
       { href: "#pricing", label: "Pricing" },
+      { href: "/feedback", label: "Feedback", icon: MessageSquare },
     ]
     : [
       { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
