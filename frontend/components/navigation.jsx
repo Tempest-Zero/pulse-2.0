@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { Sparkles, LayoutDashboard, TrendingUp, Settings, Menu, X, CalendarDays, LogOut, MessageSquare } from "lucide-react"
+import { Sparkles, LayoutDashboard, TrendingUp, Settings, Menu, X, CalendarDays, LogOut, MessageSquare, Wand2 } from "lucide-react"
 import { useState } from "react"
 import { useAuth } from "@/lib/auth-context"
 
@@ -29,6 +29,7 @@ export function Navigation() {
     : [
       { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
       { href: "/schedule", label: "Schedule", icon: CalendarDays },
+      { href: "/smart-schedule", label: "Smart Schedule", icon: Wand2 },
       { href: "/insights", label: "Insights", icon: TrendingUp },
       { href: "/feedback", label: "Feedback", icon: MessageSquare },
       { href: "/settings", label: "Settings", icon: Settings },

@@ -8,6 +8,7 @@ from .mood_router import router as mood_router
 from .extension_router import router as extension_router
 from .auth_router import router as auth_router
 from .feedback_router import router as feedback_router
+from .smart_schedule_router import router as smart_schedule_router
 
 __all__ = [
     "tasks_router",
@@ -17,5 +18,6 @@ __all__ = [
     "extension_router",
     "auth_router",
     "feedback_router",
+    "smart_schedule_router",
 ]
 

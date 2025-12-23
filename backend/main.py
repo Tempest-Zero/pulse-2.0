@@ -17,7 +17,7 @@ from fastapi.middleware.cors import CORSMiddleware
 # Import from models package (NOT models.base) to ensure all models are loaded
 # before init_db() is called - otherwise Base.metadata won't know about any tables!
 from models import init_db, test_connection
-from routers import tasks_router, schedule_router, reflections_router, mood_router, extension_router, auth_router, feedback_router
+from routers import tasks_router, schedule_router, reflections_router, mood_router, extension_router, auth_router, feedback_router, smart_schedule_router
 
 # Background tasks
 from tasks.background import (
@@ -145,6 +145,7 @@ app.include_router(mood_router)
 app.include_router(extension_router)
 app.include_router(auth_router)
 app.include_router(feedback_router)
+app.include_router(smart_schedule_router)
 
 
 @app.get("/")
