@@ -1,7 +1,7 @@
 """
 PULSE Backend API
 FastAPI application entry point.
-Version: 2.0.1 - Added Feedback System
+Version: 3.0.0 - Integrated 3-Layer Architecture (Brain + Solver + Memory)
 """
 
 # Load environment variables from .env FIRST (before any other imports)
@@ -141,7 +141,7 @@ app.include_router(tasks_router)
 app.include_router(schedule_router)
 app.include_router(reflections_router)
 app.include_router(mood_router)
-# AI router removed
+# 3-Layer Architecture: smart_schedule_router provides /api/extract, /api/schedule, /api/feedback
 app.include_router(extension_router)
 app.include_router(auth_router)
 app.include_router(feedback_router)

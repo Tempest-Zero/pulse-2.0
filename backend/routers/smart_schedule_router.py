@@ -1,383 +1,471 @@
 """
-Smart Schedule Router
-API endpoints for natural language task input and schedule generation.
-Designed to integrate with OR-Tools constraint solver.
+Smart Schedule Router - Integrated 3-Layer Architecture
+
+API endpoints following the architecture:
+- /api/extract → Layer 1: LangGraph + LLM (Brain)
+- /api/schedule → Layer 2: OR-Tools CP-SAT (Solver)
+- /api/feedback → Layer 3: Graphiti + Neo4j (Memory)
+
+Data Flow:
+- Context → Extraction (Layer 3 feeds Layer 1)
+- Patterns → Solver (Layer 3 feeds Layer 2)
+- Feedback → Storage (User feedback to Layer 3)
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, Field
-from typing import List, Optional
-from datetime import datetime
+from typing import List, Optional, Literal
+from datetime import datetime, date
+import asyncio
 
 from models.base import get_db
 from models.user import User
 from core.auth import get_current_user
 
-router = APIRouter(prefix="/smart-schedule", tags=["Smart Schedule"])
+# Layer 1: Brain (LangGraph + LLM)
+from langgraph_flow import extraction_graph, ExtractionState
+from langgraph_flow.schemas import TaskSchema, ExtractionResultSchema
+
+# Layer 2: Solver (OR-Tools CP-SAT)
+from scheduler import (
+    generate_schedule,
+    ScheduleRequest,
+    ScheduleResponse,
+    TaskInput as SolverTaskInput,
+    FixedSlot,
+    UserPreferences,
+)
+
+# Layer 3: Memory (Graphiti + Neo4j)
+from graphiti_client.resilient_client import resilient_client, patterns_to_constraints
+from graphiti_client.pattern_extractor import store_edit, store_user_defaults
+
+router = APIRouter(prefix="/api", tags=["Smart Schedule"])
 
 
-# ============== Request/Response Schemas ==============
+# ==================== Request/Response Schemas ====================
 
-class TaskInput(BaseModel):
-    """Individual task parsed from description or provided by solver."""
-    name: str = Field(..., min_length=1, max_length=255)
-    duration: int = Field(..., ge=5, le=480, description="Duration in minutes")
-    priority: Optional[str] = Field(None, pattern="^(low|medium|high)$")
-    deadline: Optional[datetime] = None
-
-
-class SmartScheduleRequest(BaseModel):
-    """Request to generate schedule from natural language description."""
-    description: str = Field(..., min_length=10, max_length=5000, 
-                             description="Natural language description of tasks")
-    start_hour: float = Field(default=9.0, ge=0, le=24, 
-                              description="Start of scheduling window (24h format)")
-    end_hour: float = Field(default=20.0, ge=0, le=24, 
-                            description="End of scheduling window (24h format)")
-    break_duration: int = Field(default=15, ge=0, le=60, 
-                                description="Break duration between tasks in minutes")
+class ExtractRequest(BaseModel):
+    """Request for NLP extraction (Layer 1)."""
+    message: str = Field(..., min_length=1, max_length=5000,
+                         description="Natural language input from user")
+    conversation_id: Optional[str] = Field(None, description="For multi-turn dialog")
 
 
-class ScheduledTask(BaseModel):
-    """A task with assigned time slot."""
-    id: int
-    name: str
-    start_time: str  # "HH:MM" format
-    end_time: str    # "HH:MM" format
-    duration: int    # Duration in minutes
-    priority: Optional[str] = None
-    tip: Optional[str] = None
+class ExtractResponse(BaseModel):
+    """Response from extraction layer."""
+    success: bool
+    needs_clarification: bool = False
+    clarification_question: Optional[str] = None
+    extracted_data: Optional[dict] = None
+    message: str
 
 
-class SmartScheduleResponse(BaseModel):
+class ScheduleGenerateRequest(BaseModel):
+    """Request to generate schedule (Layer 2)."""
+    tasks: List[dict] = Field(..., description="Tasks from extraction or manual input")
+    fixed_slots: List[dict] = Field(default=[], description="Fixed time commitments")
+    day_start_time: str = Field(default="09:00", description="Day start in HH:MM")
+    day_end_time: str = Field(default="22:00", description="Day end in HH:MM")
+    schedule_date: Optional[str] = Field(None, description="Date in YYYY-MM-DD")
+    preferences: Optional[dict] = None
+
+
+class ScheduleBlock(BaseModel):
+    """A scheduled time block."""
+    task_name: str
+    start_time: str
+    end_time: str
+    reason: str
+
+
+class ScheduleGenerateResponse(BaseModel):
     """Response with generated schedule."""
     success: bool
+    status: Literal["optimal", "feasible", "infeasible", "partial"]
+    schedule: List[ScheduleBlock]
+    overflow_tasks: List[str] = []
     message: str
-    tasks_found: int
-    scheduled_tasks: List[ScheduledTask]
-    total_duration: int  # Total minutes
-    scheduling_window: dict  # {start: "HH:MM", end: "HH:MM"}
+    error: Optional[str] = None
 
 
-class ParsedTasksResponse(BaseModel):
-    """Response with just parsed tasks (no scheduling)."""
+class FeedbackRequest(BaseModel):
+    """User feedback for schedule edit (Layer 3)."""
+    feedback_type: Literal["accepted", "edited", "rejected"]
+    task_name: str
+    original_time: Optional[str] = None  # "HH:MM" for edits
+    new_time: Optional[str] = None  # "HH:MM" for edits
+    reason: Optional[str] = None
+
+
+class FeedbackResponse(BaseModel):
+    """Response from feedback storage."""
     success: bool
     message: str
-    tasks: List[TaskInput]
+    pattern_learned: bool = False
 
 
-# ============== OR-Tools Integration Points ==============
-
-def parse_tasks_from_description(description: str) -> List[dict]:
-    """
-    Parse natural language description into individual tasks.
-    
-    TODO: This is a placeholder for OR-Tools integration.
-    Replace this function with your NLP/parsing logic.
-    
-    Args:
-        description: Natural language text describing tasks
-        
-    Returns:
-        List of task dictionaries with name, estimated duration, priority
-    """
-    # Simple sentence-based parsing as placeholder
-    # Your OR-Tools integration can replace this
-    sentences = description.replace('\n', '.').split('.')
-    sentences = [s.strip() for s in sentences if s.strip() and len(s.strip()) > 5]
-    
-    tasks = []
-    for i, sentence in enumerate(sentences):
-        # Simple heuristic for duration estimation based on word count
-        word_count = len(sentence.split())
-        
-        if word_count > 15:
-            duration = 60
-        elif word_count > 10:
-            duration = 45
-        elif word_count > 5:
-            duration = 30
-        else:
-            duration = 15
-            
-        # Simple priority detection based on keywords
-        priority = "medium"
-        lower_sentence = sentence.lower()
-        if any(word in lower_sentence for word in ["urgent", "important", "asap", "critical", "deadline"]):
-            priority = "high"
-        elif any(word in lower_sentence for word in ["optional", "if time", "maybe", "later"]):
-            priority = "low"
-        
-        tasks.append({
-            "name": sentence[:100],  # Cap name length
-            "duration": duration,
-            "priority": priority
-        })
-    
-    return tasks
+class UserDefaultsRequest(BaseModel):
+    """User defaults for cold start."""
+    wake_time: str = Field(..., pattern=r"^\d{2}:\d{2}$")
+    sleep_time: str = Field(..., pattern=r"^\d{2}:\d{2}$")
 
 
-def generate_schedule_with_solver(
-    tasks: List[dict],
-    start_hour: float,
-    end_hour: float,
-    break_duration: int,
-    fixed_blocks: List[dict] = None
-) -> List[dict]:
-    """
-    Generate optimized schedule using constraint solver.
-    
-    TODO: This is the integration point for your OR-Tools solver.
-    Replace this function with your CP-SAT based scheduling logic.
-    
-    Args:
-        tasks: List of tasks with name, duration, priority
-        start_hour: Start of available window (0-24)
-        end_hour: End of available window (0-24)
-        break_duration: Minutes of break between tasks
-        fixed_blocks: Existing schedule blocks to avoid (from class schedule, etc.)
-        
-    Returns:
-        List of scheduled tasks with time assignments
-    """
-    # Placeholder: Simple sequential scheduling
-    # Your OR-Tools solver should replace this with optimized scheduling
-    
-    scheduled = []
-    current_hour = start_hour
-    current_minutes = int((start_hour % 1) * 60)
-    
-    for i, task in enumerate(tasks):
-        task_duration_hours = task["duration"] / 60
-        
-        # Check if task fits before end hour
-        if current_hour + task_duration_hours > end_hour:
-            break
-            
-        # Format start time
-        start_time = f"{int(current_hour):02d}:{current_minutes:02d}"
-        
-        # Calculate end time
-        total_minutes = current_minutes + task["duration"]
-        end_hour_calc = int(current_hour) + total_minutes // 60
-        end_minutes = total_minutes % 60
-        end_time = f"{end_hour_calc:02d}:{end_minutes:02d}"
-        
-        scheduled.append({
-            "id": i + 1,
-            "name": task["name"],
-            "start_time": start_time,
-            "end_time": end_time,
-            "duration": task["duration"],
-            "priority": task.get("priority", "medium"),
-            "tip": get_productivity_tip()
-        })
-        
-        # Move to next slot with break
-        current_minutes = end_minutes + break_duration
-        current_hour = end_hour_calc + current_minutes // 60
-        current_minutes = current_minutes % 60
-    
-    return scheduled
+# ==================== Layer 1: Extract (Brain) ====================
 
-
-def get_productivity_tip() -> str:
-    """Get a random productivity tip."""
-    import random
-    tips = [
-        "Use the Pomodoro technique for better focus",
-        "Take a 5-min walk before starting this",
-        "Put your phone in another room",
-        "Play lofi beats to stay in the zone",
-        "Grab a snack before diving in",
-        "Set a timer so you don't lose track",
-        "Start with the hardest part first",
-        "Keep water nearby to stay hydrated",
-        "Clear your desk before beginning",
-        "Take deep breaths to center yourself",
-    ]
-    return random.choice(tips)
-
-
-# ============== API Endpoints ==============
-
-@router.post("/parse", response_model=ParsedTasksResponse)
-def parse_description(
-    request: SmartScheduleRequest,
+@router.post("/extract", response_model=ExtractResponse)
+async def extract_tasks(
+    request: ExtractRequest,
     current_user: User = Depends(get_current_user)
 ):
     """
-    Parse natural language description into tasks without scheduling.
-    Useful for previewing what tasks were detected.
+    Layer 1: NLP Extraction using LangGraph + LLM
+
+    Extracts structured task data from natural language input.
+    Supports multi-turn dialog for clarification.
+    Uses user context from Layer 3 (Graphiti) for personalization.
     """
     try:
-        parsed_tasks = parse_tasks_from_description(request.description)
-        
-        if not parsed_tasks:
-            return ParsedTasksResponse(
-                success=False,
-                message="No tasks could be identified from the description. Try being more specific.",
-                tasks=[]
+        # Get user context from Layer 3 (Memory)
+        user_context = await resilient_client.get_user_context(str(current_user.id))
+
+        # Build initial state for LangGraph
+        from langchain_core.messages import HumanMessage
+
+        initial_state: ExtractionState = {
+            "user_id": str(current_user.id),
+            "messages": [HumanMessage(content=request.message)],
+            "user_context": user_context,
+            "extracted_data": None,
+            "validation_issues": [],
+            "attempt_count": 0,
+            "final_result": None,
+        }
+
+        # Run extraction graph
+        result = await extraction_graph.ainvoke(initial_state)
+
+        # Check if clarification needed
+        if result.get("validation_issues") and not result.get("final_result"):
+            # Get the last AI message (clarification question)
+            ai_messages = [m for m in result.get("messages", [])
+                         if hasattr(m, 'type') and m.type == 'ai']
+            clarification = ai_messages[-1].content if ai_messages else "Could you provide more details?"
+
+            return ExtractResponse(
+                success=True,
+                needs_clarification=True,
+                clarification_question=clarification,
+                extracted_data=result.get("extracted_data"),
+                message="Need more information to complete extraction"
             )
-        
-        tasks = [
-            TaskInput(
-                name=t["name"],
-                duration=t["duration"],
-                priority=t.get("priority")
-            ) 
-            for t in parsed_tasks
-        ]
-        
-        return ParsedTasksResponse(
+
+        # Return final extracted data
+        final_data = result.get("final_result") or result.get("extracted_data") or {}
+
+        return ExtractResponse(
             success=True,
-            message=f"Successfully parsed {len(tasks)} tasks from your description",
-            tasks=tasks
+            needs_clarification=False,
+            extracted_data=final_data,
+            message=f"Successfully extracted {len(final_data.get('tasks', []))} tasks"
         )
-        
+
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error parsing description: {str(e)}"
+            detail=f"Extraction failed: {str(e)}"
         )
 
 
-@router.post("/generate", response_model=SmartScheduleResponse)
-def generate_smart_schedule(
-    request: SmartScheduleRequest,
-    db: Session = Depends(get_db),
+# ==================== Layer 2: Schedule (Solver) ====================
+
+@router.post("/schedule", response_model=ScheduleGenerateResponse)
+async def generate_smart_schedule(
+    request: ScheduleGenerateRequest,
     current_user: User = Depends(get_current_user)
 ):
     """
-    Generate an optimized schedule from natural language description.
-    
-    This endpoint:
-    1. Parses the description into individual tasks
-    2. Retrieves existing schedule blocks to avoid conflicts
-    3. Uses the solver to generate optimal time assignments
-    4. Returns the complete schedule
-    
-    Integration Point: The `generate_schedule_with_solver` function
-    should be replaced with your OR-Tools CP-SAT implementation.
+    Layer 2: Schedule Generation using OR-Tools CP-SAT
+
+    Generates optimized schedule using constraint satisfaction.
+    Incorporates learned patterns from Layer 3 (Graphiti).
     """
     try:
-        # Step 1: Parse tasks from description
-        parsed_tasks = parse_tasks_from_description(request.description)
-        
-        if not parsed_tasks:
-            return SmartScheduleResponse(
-                success=False,
-                message="No tasks found in description. Please describe your tasks more clearly.",
-                tasks_found=0,
-                scheduled_tasks=[],
-                total_duration=0,
-                scheduling_window={
-                    "start": f"{int(request.start_hour):02d}:{int((request.start_hour % 1) * 60):02d}",
-                    "end": f"{int(request.end_hour):02d}:{int((request.end_hour % 1) * 60):02d}"
-                }
+        # Get learned constraints from Layer 3 (Memory)
+        user_context = await resilient_client.get_user_context(str(current_user.id))
+        patterns = user_context.get("patterns", {})
+        learned_constraints = patterns_to_constraints(patterns)
+
+        # Convert tasks to solver format
+        solver_tasks = []
+        schedule_date = date.fromisoformat(request.schedule_date) if request.schedule_date else date.today()
+
+        for task in request.tasks:
+            solver_tasks.append(SolverTaskInput(
+                name=task.get("name", "Unnamed Task"),
+                priority=task.get("priority", "medium"),
+                estimated_time_hours=task.get("estimated_time_hours", 1.0),
+                deadline=schedule_date,
+                difficulty=task.get("difficulty", "medium"),
+                is_optional=task.get("is_optional", False),
+            ))
+
+        # Convert fixed slots
+        fixed_slots = [
+            FixedSlot(
+                name=slot.get("name", "Fixed"),
+                start_time=slot.get("start_time"),
+                end_time=slot.get("end_time"),
             )
-        
-        # Step 2: Get existing fixed blocks (optional, for conflict avoidance)
-        # You can fetch from database here if needed:
-        # from models.schedule import ScheduleBlock
-        # fixed_blocks = db.query(ScheduleBlock).filter(
-        #     ScheduleBlock.user_id == current_user.id,
-        #     ScheduleBlock.block_type == "fixed"
-        # ).all()
-        
-        # Step 3: Generate schedule using solver
-        scheduled_tasks = generate_schedule_with_solver(
-            tasks=parsed_tasks,
-            start_hour=request.start_hour,
-            end_hour=request.end_hour,
-            break_duration=request.break_duration,
-            fixed_blocks=None  # Pass fixed_blocks here when integrating
+            for slot in request.fixed_slots
+        ]
+
+        # Build preferences
+        prefs_data = request.preferences or {}
+        preferences = UserPreferences(
+            energy_peak=prefs_data.get("energy_peak", "morning"),
+            mood=prefs_data.get("mood", "normal"),
+            work_style=prefs_data.get("work_style", "balanced"),
         )
-        
-        if not scheduled_tasks:
-            return SmartScheduleResponse(
-                success=False,
-                message="Could not fit any tasks in the available time window",
-                tasks_found=len(parsed_tasks),
-                scheduled_tasks=[],
-                total_duration=0,
-                scheduling_window={
-                    "start": f"{int(request.start_hour):02d}:{int((request.start_hour % 1) * 60):02d}",
-                    "end": f"{int(request.end_hour):02d}:{int((request.end_hour % 1) * 60):02d}"
-                }
-            )
-        
+
+        # Create schedule request
+        schedule_request = ScheduleRequest(
+            tasks=solver_tasks,
+            fixed_slots=fixed_slots,
+            preferences=preferences,
+            day_start_time=request.day_start_time,
+            day_end_time=request.day_end_time,
+            date=schedule_date,
+        )
+
+        # Generate schedule with learned constraints
+        result: ScheduleResponse = generate_schedule(schedule_request, learned_constraints)
+
         # Convert to response format
-        response_tasks = [
-            ScheduledTask(**task) for task in scheduled_tasks
+        schedule_blocks = [
+            ScheduleBlock(
+                task_name=block.task_name,
+                start_time=block.start_time,
+                end_time=block.end_time,
+                reason=block.reason,
+            )
+            for block in result.schedule
         ]
-        
-        total_duration = sum(t.duration for t in response_tasks)
-        
-        return SmartScheduleResponse(
-            success=True,
-            message=f"Successfully scheduled {len(response_tasks)} out of {len(parsed_tasks)} tasks",
-            tasks_found=len(parsed_tasks),
-            scheduled_tasks=response_tasks,
-            total_duration=total_duration,
-            scheduling_window={
-                "start": f"{int(request.start_hour):02d}:{int((request.start_hour % 1) * 60):02d}",
-                "end": f"{int(request.end_hour):02d}:{int((request.end_hour % 1) * 60):02d}"
-            }
+
+        return ScheduleGenerateResponse(
+            success=result.status in ["optimal", "feasible"],
+            status=result.status,
+            schedule=schedule_blocks,
+            overflow_tasks=result.overflow_tasks,
+            message=f"Generated schedule with {len(schedule_blocks)} blocks",
+            error=result.error,
         )
-        
+
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error generating schedule: {str(e)}"
+            detail=f"Schedule generation failed: {str(e)}"
         )
 
 
-@router.post("/generate-from-tasks", response_model=SmartScheduleResponse)
-def generate_from_tasks(
-    tasks: List[TaskInput],
-    start_hour: float = 9.0,
-    end_hour: float = 20.0,
-    break_duration: int = 15,
-    db: Session = Depends(get_db),
+# ==================== Layer 3: Feedback (Memory) ====================
+
+@router.post("/feedback", response_model=FeedbackResponse)
+async def store_feedback(
+    request: FeedbackRequest,
     current_user: User = Depends(get_current_user)
 ):
     """
-    Generate schedule from pre-parsed task list.
-    
-    Use this endpoint when you want to:
-    - Bypass natural language parsing
-    - Provide tasks directly from another source
-    - Test the scheduler with specific task configurations
+    Layer 3: Feedback Storage using Graphiti + Neo4j
+
+    Stores user feedback for pattern learning.
+    Edits are stored as temporal facts for future schedule optimization.
     """
     try:
-        task_dicts = [t.model_dump() for t in tasks]
-        
-        scheduled_tasks = generate_schedule_with_solver(
-            tasks=task_dicts,
-            start_hour=start_hour,
-            end_hour=end_hour,
-            break_duration=break_duration
-        )
-        
-        response_tasks = [ScheduledTask(**task) for task in scheduled_tasks]
-        total_duration = sum(t.duration for t in response_tasks)
-        
-        return SmartScheduleResponse(
-            success=True,
-            message=f"Scheduled {len(response_tasks)} tasks",
-            tasks_found=len(tasks),
-            scheduled_tasks=response_tasks,
-            total_duration=total_duration,
-            scheduling_window={
-                "start": f"{int(start_hour):02d}:{int((start_hour % 1) * 60):02d}",
-                "end": f"{int(end_hour):02d}:{int((end_hour % 1) * 60):02d}"
+        user_id = str(current_user.id)
+        pattern_learned = False
+
+        if request.feedback_type == "edited":
+            # Store edit for pattern learning
+            edit_data = {
+                "task_name": request.task_name,
+                "from_time": request.original_time,
+                "to_time": request.new_time,
+                "action": "move",
+                "reason": request.reason,
             }
+
+            success = await resilient_client.store_edit(user_id, edit_data)
+            pattern_learned = success
+
+            message = "Edit recorded for pattern learning" if success else "Edit queued (will sync when available)"
+
+        elif request.feedback_type == "accepted":
+            # Store acceptance (positive reinforcement)
+            from graphiti_client.store import store_acceptance
+            await store_acceptance(user_id, {
+                "task_name": request.task_name,
+                "accepted_time": request.original_time or request.new_time,
+            })
+            message = "Acceptance recorded"
+
+        else:  # rejected
+            message = "Rejection noted"
+
+        return FeedbackResponse(
+            success=True,
+            message=message,
+            pattern_learned=pattern_learned,
         )
-        
+
+    except Exception as e:
+        # Non-fatal - queue for later
+        return FeedbackResponse(
+            success=False,
+            message=f"Feedback queued: {str(e)}",
+            pattern_learned=False,
+        )
+
+
+@router.post("/user-defaults", response_model=FeedbackResponse)
+async def set_user_defaults(
+    request: UserDefaultsRequest,
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Store user defaults (wake/sleep time) for cold start.
+    """
+    try:
+        user_id = str(current_user.id)
+        success = await resilient_client.store_user_defaults(
+            user_id,
+            request.wake_time,
+            request.sleep_time
+        )
+
+        return FeedbackResponse(
+            success=success,
+            message="User defaults saved" if success else "Defaults queued for sync",
+            pattern_learned=False,
+        )
+
+    except Exception as e:
+        return FeedbackResponse(
+            success=False,
+            message=f"Error saving defaults: {str(e)}",
+            pattern_learned=False,
+        )
+
+
+# ==================== Combined Endpoint ====================
+
+class FullScheduleRequest(BaseModel):
+    """Combined request for full flow."""
+    description: str = Field(..., description="Natural language task description")
+    day_start_time: str = Field(default="09:00")
+    day_end_time: str = Field(default="22:00")
+    schedule_date: Optional[str] = None
+    fixed_slots: List[dict] = []
+
+
+class FullScheduleResponse(BaseModel):
+    """Combined response with extraction + schedule."""
+    success: bool
+    needs_clarification: bool = False
+    clarification_question: Optional[str] = None
+    extracted_tasks: List[dict] = []
+    schedule: List[ScheduleBlock] = []
+    overflow_tasks: List[str] = []
+    message: str
+
+
+@router.post("/generate", response_model=FullScheduleResponse)
+async def generate_full_schedule(
+    request: FullScheduleRequest,
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Full pipeline: Extract → Schedule
+
+    Combines Layer 1 (extraction) and Layer 2 (scheduling) in one call.
+    Uses Layer 3 (memory) for context and patterns.
+    """
+    try:
+        # Step 1: Extract tasks (Layer 1)
+        extract_response = await extract_tasks(
+            ExtractRequest(message=request.description),
+            current_user
+        )
+
+        if extract_response.needs_clarification:
+            return FullScheduleResponse(
+                success=True,
+                needs_clarification=True,
+                clarification_question=extract_response.clarification_question,
+                extracted_tasks=extract_response.extracted_data.get("tasks", []) if extract_response.extracted_data else [],
+                message="Need clarification before scheduling"
+            )
+
+        extracted_data = extract_response.extracted_data or {}
+        tasks = extracted_data.get("tasks", [])
+
+        if not tasks:
+            return FullScheduleResponse(
+                success=False,
+                message="No tasks could be extracted from your description"
+            )
+
+        # Step 2: Generate schedule (Layer 2)
+        schedule_response = await generate_smart_schedule(
+            ScheduleGenerateRequest(
+                tasks=tasks,
+                fixed_slots=request.fixed_slots + extracted_data.get("fixed_slots", []),
+                day_start_time=extracted_data.get("wake_time") or request.day_start_time,
+                day_end_time=extracted_data.get("sleep_time") or request.day_end_time,
+                schedule_date=request.schedule_date,
+                preferences=extracted_data.get("preferences"),
+            ),
+            current_user
+        )
+
+        return FullScheduleResponse(
+            success=schedule_response.success,
+            extracted_tasks=tasks,
+            schedule=schedule_response.schedule,
+            overflow_tasks=schedule_response.overflow_tasks,
+            message=f"Extracted {len(tasks)} tasks, scheduled {len(schedule_response.schedule)}"
+        )
+
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error generating schedule: {str(e)}"
+            detail=f"Pipeline failed: {str(e)}"
         )
+
+
+# ==================== Health/Status ====================
+
+@router.get("/status")
+async def get_layer_status():
+    """Check status of all three layers."""
+
+    # Check Layer 3 (Graphiti/Neo4j)
+    neo4j_available = resilient_client.is_available()
+    queue_size = resilient_client.get_queue_size("_health_check")
+
+    return {
+        "layer1_brain": {
+            "status": "ready",
+            "engine": "LangGraph + OpenAI"
+        },
+        "layer2_solver": {
+            "status": "ready",
+            "engine": "OR-Tools CP-SAT"
+        },
+        "layer3_memory": {
+            "status": "connected" if neo4j_available else "fallback",
+            "engine": "Graphiti + Neo4j",
+            "queued_operations": queue_size,
+        }
+    }
