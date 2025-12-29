@@ -419,55 +419,6 @@ async def get_user_context(user_id: str) -> dict:
     return context
 
 
-def patterns_to_constraints(patterns: dict) -> dict:
-    """
-    Convert learned patterns to solver constraint format.
-    
-    Implements frequency weighting: more edits = stronger constraint.
-    
-    Args:
-        patterns: {"avoided_times": {task: [hours]}, "time_preferences": {task: [hours]}}
-    
-    Returns:
-        {
-            "avoid_time_slots": [(task, start_hour, end_hour, penalty_weight)],
-            "prefer_time_slots": [(task, start_hour, end_hour, bonus_weight)]
-        }
-    """
-    constraints = {
-        "avoid_time_slots": [],
-        "prefer_time_slots": []
-    }
-    
-    BASE_AVOID_WEIGHT = 200
-    BASE_PREFER_WEIGHT = -100
-    MAX_AVOID_WEIGHT = 1000
-    MAX_PREFER_WEIGHT = -500
-    
-    # Process avoidance patterns with frequency weighting
-    for task, hours in patterns.get("avoided_times", {}).items():
-        # Count occurrences of each hour
-        hour_counts = {}
-        for h in hours:
-            hour_counts[h] = hour_counts.get(h, 0) + 1
-        
-        for hour, count in hour_counts.items():
-            weight = min(BASE_AVOID_WEIGHT * count, MAX_AVOID_WEIGHT)
-            constraints["avoid_time_slots"].append((task, hour, hour + 1, weight))
-    
-    # Process preference patterns with frequency weighting
-    for task, hours in patterns.get("time_preferences", {}).items():
-        hour_counts = {}
-        for h in hours:
-            hour_counts[h] = hour_counts.get(h, 0) + 1
-        
-        for hour, count in hour_counts.items():
-            weight = max(BASE_PREFER_WEIGHT * count, MAX_PREFER_WEIGHT)
-            constraints["prefer_time_slots"].append((task, hour, hour + 1, weight))
-    
-    return constraints
-
-
 async def store_user_defaults(user_id: str, wake_time: str, sleep_time: str) -> None:
     """Store user's default wake/sleep times."""
     await store_cold_start(user_id, {

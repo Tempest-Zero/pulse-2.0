@@ -369,15 +369,35 @@ class FullScheduleRequest(BaseModel):
     fixed_slots: List[dict] = []
 
 
+class ScheduledTaskResponse(BaseModel):
+    """A scheduled task in frontend-compatible format."""
+    id: str
+    name: str
+    start_time: str
+    end_time: str
+    duration: int  # in minutes
+    priority: str = "medium"
+    tip: Optional[str] = None
+
+
+class SchedulingWindow(BaseModel):
+    """Scheduling window info."""
+    start: str
+    end: str
+
+
 class FullScheduleResponse(BaseModel):
-    """Combined response with extraction + schedule."""
+    """Combined response with extraction + schedule (frontend-compatible)."""
     success: bool
     needs_clarification: bool = False
     clarification_question: Optional[str] = None
-    extracted_tasks: List[dict] = []
-    schedule: List[ScheduleBlock] = []
-    overflow_tasks: List[str] = []
     message: str
+    # Frontend-compatible fields
+    scheduled_tasks: List[ScheduledTaskResponse] = []
+    tasks_found: int = 0
+    total_duration: int = 0  # in minutes
+    scheduling_window: Optional[SchedulingWindow] = None
+    overflow_tasks: List[str] = []
 
 
 @router.post("/generate", response_model=FullScheduleResponse)
@@ -403,7 +423,6 @@ async def generate_full_schedule(
                 success=True,
                 needs_clarification=True,
                 clarification_question=extract_response.clarification_question,
-                extracted_tasks=extract_response.extracted_data.get("tasks", []) if extract_response.extracted_data else [],
                 message="Need clarification before scheduling"
             )
 
@@ -417,24 +436,63 @@ async def generate_full_schedule(
             )
 
         # Step 2: Generate schedule (Layer 2)
+        day_start = extracted_data.get("wake_time") or request.day_start_time
+        day_end = extracted_data.get("sleep_time") or request.day_end_time
+
         schedule_response = await generate_smart_schedule(
             ScheduleGenerateRequest(
                 tasks=tasks,
                 fixed_slots=request.fixed_slots + extracted_data.get("fixed_slots", []),
-                day_start_time=extracted_data.get("wake_time") or request.day_start_time,
-                day_end_time=extracted_data.get("sleep_time") or request.day_end_time,
+                day_start_time=day_start,
+                day_end_time=day_end,
                 schedule_date=request.schedule_date,
                 preferences=extracted_data.get("preferences"),
             ),
             current_user
         )
 
+        # Convert to frontend-compatible format
+        scheduled_tasks = []
+        total_duration = 0
+
+        for i, block in enumerate(schedule_response.schedule):
+            # Calculate duration in minutes from time strings
+            try:
+                start_parts = block.start_time.split(":")
+                end_parts = block.end_time.split(":")
+                start_mins = int(start_parts[0]) * 60 + int(start_parts[1])
+                end_mins = int(end_parts[0]) * 60 + int(end_parts[1])
+                duration = end_mins - start_mins
+            except:
+                duration = 60  # Default 1 hour
+
+            total_duration += duration
+
+            # Find matching task for priority
+            task_priority = "medium"
+            for task in tasks:
+                if task.get("name", "").lower() == block.task_name.lower():
+                    task_priority = task.get("priority", "medium")
+                    break
+
+            scheduled_tasks.append(ScheduledTaskResponse(
+                id=f"task-{i+1}",
+                name=block.task_name,
+                start_time=block.start_time,
+                end_time=block.end_time,
+                duration=duration,
+                priority=task_priority,
+                tip=block.reason,
+            ))
+
         return FullScheduleResponse(
             success=schedule_response.success,
-            extracted_tasks=tasks,
-            schedule=schedule_response.schedule,
+            message=f"Extracted {len(tasks)} tasks, scheduled {len(scheduled_tasks)}",
+            scheduled_tasks=scheduled_tasks,
+            tasks_found=len(tasks),
+            total_duration=total_duration,
+            scheduling_window=SchedulingWindow(start=day_start, end=day_end),
             overflow_tasks=schedule_response.overflow_tasks,
-            message=f"Extracted {len(tasks)} tasks, scheduled {len(schedule_response.schedule)}"
         )
 
     except Exception as e:
