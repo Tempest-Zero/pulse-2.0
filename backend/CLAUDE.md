@@ -15,7 +15,7 @@ backend/
 │   ├── schedule_router.py
 │   ├── mood_router.py
 │   ├── reflections_router.py
-│   ├── ai_router.py     # /ai/recommendation
+│   ├── smart_schedule_router.py  # 3-Layer AI: /api/extract, /api/schedule, /api/feedback
 │   └── extension_router.py
 ├── models/              # SQLAlchemy ORM models
 │   ├── base.py          # DB engine, init_db(), get_db()
@@ -24,11 +24,22 @@ backend/
 │   └── ...
 ├── crud/                # Database CRUD operations
 ├── schema/              # Pydantic request/response schemas
-├── ai/                  # RL-based recommendation engine
-│   ├── agent.py         # Main AI agent
-│   ├── dqn_agent.py     # Deep Q-Network
-│   ├── hybrid_recommender.py
-│   └── ...
+├── langgraph_flow/      # Layer 1: Brain (LangGraph + LLM)
+│   ├── extraction_graph.py  # Multi-turn extraction workflow
+│   ├── llm_extractor.py     # OpenAI structured extraction
+│   ├── schemas.py           # Pydantic schemas for extraction
+│   └── prompts.py           # System prompts
+├── scheduler/           # Layer 2: Solver (OR-Tools CP-SAT)
+│   ├── solver.py            # Main constraint solver
+│   ├── models.py            # Pydantic request/response models
+│   ├── constraint.py        # Task constraints
+│   ├── objective.py         # Optimization objectives
+│   └── soft_constraints.py  # Learned constraints
+├── graphiti_client/     # Layer 3: Memory (Graphiti + Neo4j)
+│   ├── client.py            # Neo4j connection
+│   ├── resilient_client.py  # Fallback wrapper
+│   ├── store.py             # Episode storage
+│   └── pattern_extractor.py # Pattern extraction from facts
 ├── migrations/          # SQL migration scripts
 │   └── 001_add_auth_columns.sql
 └── tests/               # Pytest test suite
@@ -103,7 +114,11 @@ Configured in `railway.json` and `nixpacks.toml`:
 | `/auth/signup` | POST | Create account |
 | `/auth/login` | POST | Get JWT token |
 | `/auth/me` | GET | Get current user (requires token) |
-| `/ai/recommendation` | GET | Get AI productivity recommendation |
+| `/api/extract` | POST | Layer 1: NLP extraction (LangGraph + LLM) |
+| `/api/schedule` | POST | Layer 2: Schedule generation (OR-Tools) |
+| `/api/feedback` | POST | Layer 3: Store feedback (Graphiti) |
+| `/api/generate` | POST | Full pipeline: Extract + Schedule |
+| `/api/status` | GET | Check status of all 3 layers |
 | `/tasks` | GET/POST | Task management |
 
 ## Common Gotchas
