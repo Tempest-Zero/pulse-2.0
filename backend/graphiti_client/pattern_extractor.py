@@ -12,7 +12,6 @@ import re
 import json
 from datetime import datetime
 from typing import Optional
-from .store import store_cold_start
 from .client import get_initialized_client
 
 
@@ -417,36 +416,6 @@ async def get_user_context(user_id: str) -> dict:
         print(f"[pattern_extractor] Error fetching context: {e}")
     
     return context
-
-
-async def store_user_defaults(user_id: str, wake_time: str, sleep_time: str) -> None:
-    """Store user's default wake/sleep times."""
-    await store_cold_start(user_id, {
-        "type": "user_defaults",
-        "wake_time": wake_time,
-        "sleep_time": sleep_time,
-        "timestamp": datetime.now().isoformat()
-    })
-
-
-async def store_edit(user_id: str, edit_data: dict) -> None:
-    """
-    Store user edit for learning.
-    
-    Args:
-        edit_data: {
-            "task_name": str,
-            "from_time": str (HH:MM),
-            "to_time": str (HH:MM),
-            "action": str (optional)
-        }
-    """
-    await store_cold_start(user_id, {
-        "type": "edit",
-        "feedback_type": "edited",
-        "data": edit_data,
-        "timestamp": datetime.now().isoformat()
-    })
 
 
 # Alias for backward compatibility

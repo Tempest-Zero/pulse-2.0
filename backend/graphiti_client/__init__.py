@@ -12,11 +12,9 @@ from .pattern_extractor import (
     get_user_context,
     get_user_defaults,
     extract_patterns,
-    store_user_defaults,
-    store_edit,
     fetch_preferences
 )
-from .store import store_cold_start, store_acceptance
+from .store import store_cold_start, store_acceptance, store_edit
 
 __all__ = [
     "resilient_client",
@@ -24,9 +22,8 @@ __all__ = [
     "get_user_context",
     "get_user_defaults",
     "extract_patterns",
-    "store_user_defaults",
-    "store_edit",
     "store_cold_start",
     "store_acceptance",
+    "store_edit",
     "fetch_preferences"
 ]

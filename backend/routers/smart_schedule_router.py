@@ -39,7 +39,6 @@ from scheduler import (
 
 # Layer 3: Memory (Graphiti + Neo4j)
 from graphiti_client.resilient_client import resilient_client, patterns_to_constraints
-from graphiti_client.pattern_extractor import store_edit, store_user_defaults
 
 router = APIRouter(prefix="/api", tags=["Smart Schedule"])
 
@@ -64,11 +63,16 @@ class ExtractResponse(BaseModel):
 
 class ScheduleGenerateRequest(BaseModel):
     """Request to generate schedule (Layer 2)."""
-    tasks: List[dict] = Field(..., description="Tasks from extraction or manual input")
-    fixed_slots: List[dict] = Field(default=[], description="Fixed time commitments")
-    day_start_time: str = Field(default="09:00", description="Day start in HH:MM")
-    day_end_time: str = Field(default="22:00", description="Day end in HH:MM")
-    schedule_date: Optional[str] = Field(None, description="Date in YYYY-MM-DD")
+    tasks: List[dict] = Field(..., min_length=1, max_length=50,
+                               description="Tasks from extraction or manual input")
+    fixed_slots: List[dict] = Field(default=[], max_length=20,
+                                     description="Fixed time commitments")
+    day_start_time: str = Field(default="09:00", pattern=r"^\d{2}:\d{2}$",
+                                 description="Day start in HH:MM")
+    day_end_time: str = Field(default="22:00", pattern=r"^\d{2}:\d{2}$",
+                               description="Day end in HH:MM")
+    schedule_date: Optional[str] = Field(None, pattern=r"^\d{4}-\d{2}-\d{2}$",
+                                          description="Date in YYYY-MM-DD")
     preferences: Optional[dict] = None
 
 
@@ -362,11 +366,12 @@ async def set_user_defaults(
 
 class FullScheduleRequest(BaseModel):
     """Combined request for full flow."""
-    description: str = Field(..., description="Natural language task description")
-    day_start_time: str = Field(default="09:00")
-    day_end_time: str = Field(default="22:00")
-    schedule_date: Optional[str] = None
-    fixed_slots: List[dict] = []
+    description: str = Field(..., min_length=1, max_length=5000,
+                              description="Natural language task description")
+    day_start_time: str = Field(default="09:00", pattern=r"^\d{2}:\d{2}$")
+    day_end_time: str = Field(default="22:00", pattern=r"^\d{2}:\d{2}$")
+    schedule_date: Optional[str] = Field(None, pattern=r"^\d{4}-\d{2}-\d{2}$")
+    fixed_slots: List[dict] = Field(default=[], max_length=20)
 
 
 class ScheduledTaskResponse(BaseModel):
