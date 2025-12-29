@@ -55,3 +55,6 @@ langgraph>=0.2.0
 langchain-core>=0.3.0
 langchain-openai>=0.2.0
 openai>=1.50.0
+
+# Constraint Solver (OR-Tools for schedule optimization)
+ortools>=9.8

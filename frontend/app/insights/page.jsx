@@ -8,11 +8,9 @@ import { getReflections, getMoodAverage, getCommonDistractions } from "@/lib/api
 import { getMoodCounts, getMostCommonMood } from "@/lib/api/mood"
 import { getTasks } from "@/lib/api/tasks"
 import { useToast } from "@/hooks/use-toast"
-import { useAuth } from "@/lib/auth-context"
 
 export default function InsightsPage() {
   const { toast } = useToast()
-  const { isAuthenticated, loading: authLoading } = useAuth()
   const [weekData, setWeekData] = useState([
     { day: "Mon", focus: 0, mood: 0 },
     { day: "Tue", focus: 0, mood: 0 },
@@ -34,43 +32,38 @@ export default function InsightsPage() {
   const [commonDistractions, setCommonDistractions] = useState([])
   const [mostCommonMood, setMostCommonMood] = useState(null)
 
-  // Load insights ONLY when authenticated
-  // This fixes the race condition where API calls fire before token is ready
   useEffect(() => {
-    if (authLoading || !isAuthenticated) {
-      return
-    }
     loadInsights()
-  }, [isAuthenticated, authLoading])
+  }, [])
 
   const loadInsights = async () => {
     try {
       setLoading(true)
-
+      
       // Load reflections for mood data
       const reflections = await getReflections(7)
-
+      
       // Load mood analytics
       const moodAvg = await getMoodAverage(7)
       setMoodAverage(moodAvg)
-
+      
       const mostCommon = await getMostCommonMood(100)
       setMostCommonMood(mostCommon)
-
+      
       // Load distractions
       const distractions = await getCommonDistractions(30)
       setCommonDistractions(distractions.distractions || [])
-
+      
       // Load tasks for completion stats
       const allTasks = await getTasks()
       const completedTasks = allTasks.filter(t => t.completed).length
       const totalTasks = allTasks.length
-
+      
       // Calculate focus time (sum of completed task durations)
       const totalFocusTime = allTasks
         .filter(t => t.completed)
         .reduce((sum, t) => sum + (t.duration || 0), 0)
-
+      
       setStats({
         totalFocusTime: Math.round(totalFocusTime * 10) / 10, // Round to 1 decimal
         tasksCompleted: completedTasks,
@@ -78,7 +71,7 @@ export default function InsightsPage() {
         avgProductivity: totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0,
         breaksTaken: Math.floor(totalFocusTime / 2), // Estimate breaks
       })
-
+      
       // Map reflections to week data (simplified - using last 7 reflections)
       if (reflections.length > 0) {
         const mappedData = reflections.slice(0, 7).reverse().map((reflection, index) => {
@@ -89,13 +82,13 @@ export default function InsightsPage() {
             mood: reflection.moodScore || 3,
           }
         })
-
+        
         // Fill remaining days with zeros
         while (mappedData.length < 7) {
           const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
           mappedData.push({ day: days[mappedData.length], focus: 0, mood: 0 })
         }
-
+        
         setWeekData(mappedData.slice(0, 7))
       }
     } catch (error) {

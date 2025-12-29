@@ -230,128 +230,16 @@ async def upload_class_schedule(
     current_user: User = Depends(get_current_user)
 ):
     """
-    Upload a class schedule image and extract schedule using AI Vision.
+    Upload a class schedule image (AI feature disabled).
 
-    This endpoint uses Gemini Vision to:
-    1. Analyze the uploaded schedule image (timetable, class schedule, etc.)
-    2. Extract all classes/events with their times and days
-    3. Optionally save them as fixed schedule blocks
-
-    Args:
-        file: Image file (PNG, JPEG, etc.)
-        save_to_schedule: If True, automatically creates fixed blocks (default: True)
-        target_day: If provided, only save blocks for this day (e.g., "monday")
-
-    Returns:
-        Extracted schedule items and created blocks
+    This endpoint previously used AI Vision to extract schedules from images.
+    The AI module has been removed, so this feature is currently not available.
+    Please add schedule blocks manually using the regular create endpoint.
     """
-    from ai.llm_service import get_llm_service
-
-    # Validate file type
-    allowed_types = ["image/png", "image/jpeg", "image/jpg", "image/webp", "image/gif"]
-    if file.content_type not in allowed_types:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Invalid file type. Allowed: {', '.join(allowed_types)}"
-        )
-
-    # Read image bytes
-    try:
-        image_bytes = await file.read()
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Failed to read file: {e}")
-
-    # Check file size (max 10MB)
-    if len(image_bytes) > 10 * 1024 * 1024:
-        raise HTTPException(status_code=400, detail="File too large. Maximum size is 10MB.")
-
-    # Extract schedule using Gemini Vision
-    llm_service = get_llm_service()
-    extraction_result = llm_service.extract_schedule_from_image(
-        image_bytes=image_bytes,
-        image_mime_type=file.content_type
+    raise HTTPException(
+        status_code=501,
+        detail="AI-powered schedule extraction is not available. Please add schedule blocks manually."
     )
-
-    if not extraction_result.get("success"):
-        return {
-            "success": False,
-            "message": "Failed to extract schedule from image",
-            "error": extraction_result.get("error", "Unknown error"),
-            "suggestion": "Please ensure the image clearly shows a schedule/timetable, or try a different image."
-        }
-
-    # Convert to fixed blocks if requested
-    created_blocks = []
-    if save_to_schedule and extraction_result.get("schedule_items"):
-        # Get today's day of week if not specified
-        if not target_day:
-            import datetime
-            days = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
-            target_day = days[datetime.datetime.now().weekday()]
-
-        # Convert extracted items to blocks
-        fixed_blocks = llm_service.convert_extracted_to_fixed_blocks(
-            extracted_items=extraction_result["schedule_items"],
-            target_day=target_day
-        )
-
-        # Clear existing fixed blocks for this user (for the target day)
-        # This prevents duplicates when re-uploading
-        existing_fixed = db.query(ScheduleBlock).filter(
-            ScheduleBlock.user_id == current_user.id,
-            ScheduleBlock.block_type == "fixed"
-        ).all()
-
-        # Delete only blocks that match the extracted schedule times
-        for block_data in fixed_blocks:
-            # Check if similar block exists
-            for existing in existing_fixed:
-                if (abs(existing.start - block_data["start"]) < 0.1 and
-                    abs(existing.duration - block_data["duration"]) < 0.1):
-                    db.delete(existing)
-
-        # Create new fixed blocks
-        for block_data in fixed_blocks:
-            block = ScheduleBlock(
-                user_id=current_user.id,
-                title=block_data["title"],
-                start=block_data["start"],
-                duration=block_data["duration"],
-                block_type="fixed"
-            )
-            db.add(block)
-            created_blocks.append({
-                "title": block.title,
-                "start": block.start,
-                "duration": block.duration,
-                "day_of_week": block_data.get("day_of_week"),
-                "location": block_data.get("location")
-            })
-
-        db.commit()
-
-    return {
-        "success": True,
-        "message": f"Successfully extracted {len(extraction_result.get('schedule_items', []))} schedule items",
-        "ai_powered": True,
-        "extraction": {
-            "total_items": extraction_result.get("total_items_found", 0),
-            "confidence": extraction_result.get("confidence", "unknown"),
-            "schedule_type": extraction_result.get("schedule_type", "unknown"),
-            "warnings": extraction_result.get("warnings", []),
-            "items": extraction_result.get("schedule_items", [])
-        },
-        "saved_blocks": {
-            "count": len(created_blocks),
-            "target_day": target_day,
-            "blocks": created_blocks
-        },
-        "next_steps": [
-            "Your fixed schedule has been saved.",
-            "Use /ai/generate-schedule to create an optimized schedule around your classes.",
-            "You can view your schedule on the Schedule page."
-        ]
-    }
 
 
 @router.get("/extracted-schedule")

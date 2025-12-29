@@ -1,6 +1,7 @@
 """
 PULSE Backend API
 FastAPI application entry point.
+Version: 2.0.1 - Added Feedback System
 """
 
 # Load environment variables from .env FIRST (before any other imports)
@@ -16,7 +17,7 @@ from fastapi.middleware.cors import CORSMiddleware
 # Import from models package (NOT models.base) to ensure all models are loaded
 # before init_db() is called - otherwise Base.metadata won't know about any tables!
 from models import init_db, test_connection
-from routers import tasks_router, schedule_router, reflections_router, mood_router, ai_router, extension_router, auth_router
+from routers import tasks_router, schedule_router, reflections_router, mood_router, extension_router, auth_router, feedback_router, smart_schedule_router
 
 # Background tasks
 from tasks.background import (
@@ -140,9 +141,11 @@ app.include_router(tasks_router)
 app.include_router(schedule_router)
 app.include_router(reflections_router)
 app.include_router(mood_router)
-app.include_router(ai_router)
+# AI router removed
 app.include_router(extension_router)
 app.include_router(auth_router)
+app.include_router(feedback_router)
+app.include_router(smart_schedule_router)
 
 
 @app.get("/")

@@ -81,10 +81,6 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     """
     to_encode = data.copy()
     
-    # JWT 'sub' claim must be a string per RFC 7519
-    if "sub" in to_encode and not isinstance(to_encode["sub"], str):
-        to_encode["sub"] = str(to_encode["sub"])
-    
     if expires_delta:
         expire = datetime.utcnow() + expires_delta
     else:
@@ -138,45 +134,27 @@ async def get_current_user(
         headers={"WWW-Authenticate": "Bearer"},
     )
     
-    # Debug logging
     if token is None:
-        print("[AUTH DEBUG] No token received in request")
         raise credentials_exception
-    else:
-        print(f"[AUTH DEBUG] Token received: {token[:20]}...{token[-10:] if len(token) > 30 else ''}")
     
     payload = decode_access_token(token)
     if payload is None:
-        print("[AUTH DEBUG] Token decode failed - invalid or expired token")
-        raise credentials_exception
-    else:
-        print(f"[AUTH DEBUG] Token decoded successfully, payload: {payload}")
-    
-    user_id_raw = payload.get("sub")
-    if user_id_raw is None:
-        print("[AUTH DEBUG] No 'sub' claim in token payload")
         raise credentials_exception
     
-    # Convert sub from string to int (JWT sub claim is always a string)
-    try:
-        user_id = int(user_id_raw)
-    except (ValueError, TypeError):
-        print(f"[AUTH DEBUG] Invalid 'sub' claim format: {user_id_raw}")
+    user_id: int = payload.get("sub")
+    if user_id is None:
         raise credentials_exception
     
     user = db.query(User).filter(User.id == user_id).first()
     if user is None:
-        print(f"[AUTH DEBUG] User with id {user_id} not found in database")
         raise credentials_exception
     
     if not user.is_active:
-        print(f"[AUTH DEBUG] User {user_id} is inactive")
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="User account is inactive"
         )
     
-    print(f"[AUTH DEBUG] Auth successful for user {user_id} ({user.email})")
     return user
 
 
@@ -198,14 +176,8 @@ async def get_optional_user(
     if payload is None:
         return None
     
-    user_id_raw = payload.get("sub")
-    if user_id_raw is None:
-        return None
-    
-    # Convert sub from string to int (JWT sub claim is always a string)
-    try:
-        user_id = int(user_id_raw)
-    except (ValueError, TypeError):
+    user_id: int = payload.get("sub")
+    if user_id is None:
         return None
     
     user = db.query(User).filter(User.id == user_id, User.is_active == True).first()
