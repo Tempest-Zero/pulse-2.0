@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
 
@@ -20,9 +20,15 @@ export default function AuthForm() {
     const { login, signup, isAuthenticated } = useAuth();
     const router = useRouter();
 
-    // Redirect if already authenticated
+    // Redirect if already authenticated (must be in useEffect, not during render)
+    useEffect(() => {
+        if (isAuthenticated) {
+            router.push('/dashboard');
+        }
+    }, [isAuthenticated, router]);
+
+    // Show nothing while redirecting
     if (isAuthenticated) {
-        router.push('/dashboard');
         return null;
     }
 
