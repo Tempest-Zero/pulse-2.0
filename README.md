@@ -215,12 +215,5 @@ Contributions welcome! Please read CONTRIBUTING.md first.
 - Privacy design influenced by GDPR best practices
 - Icon design: [Attribution if applicable]
 
-## 📞 Support
-
-- Documentation: [Link to docs]
-- Issues: [GitHub Issues](https://github.com/your-org/pulse-2.0/issues)
-- Email: support@pulse-app.example.com
-
----
 
 Built with ❤️ for calm, focused productivity
